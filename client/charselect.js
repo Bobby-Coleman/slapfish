@@ -20,35 +20,40 @@ export function characterName(id) { const c = CHARACTERS.find((q) => q.id === id
 const CSS = `
 #charsel { position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto;
   background: linear-gradient(180deg, #7fd6f0f2, #1fa3c9f8); font-family: 'Baloo 2', system-ui, sans-serif; color: #10223a; }
-#charsel .cs-card { background: #fff8ec; border-radius: 24px; padding: 18px 20px 20px; width: min(980px, 100%); box-shadow: 0 10px 0 #10223a33; }
-#charsel h1 { margin: 0 0 8px; text-align: center; font-size: 40px; line-height: 1; font-weight: 800; color: #10223a; }
-#charsel h1 span { color: #ff5a5f; }
+#charsel .cs-card { width: min(980px, 100%); }
+#charsel h1 { margin: 0 0 14px; text-align: center; font-size: clamp(34px, 7vw, 72px); line-height: .9; font-weight: 900; color: #ff5a5f;
+  -webkit-text-stroke: .045em #10223a; filter: drop-shadow(0 6px 0 #10223a); letter-spacing: 1px; }
+#charsel h1 span { color: #ffd23f; }
+#charsel .cs-panel { background: #fff8ec; border-radius: 22px; padding: 14px; box-shadow: 0 8px 0 #10223a55; }
 #charsel .cs-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; }
-#charsel .cs-stage { position: relative; background: radial-gradient(circle at 50% 70%, #ffffff, #cdeffa 70%); border-radius: 18px; min-height: 360px; overflow: hidden; cursor: grab; touch-action: none; }
+#charsel .cs-stage { position: relative; background: radial-gradient(circle at 50% 70%, #ffffff, #cdeffa 70%); border-radius: 22px; box-shadow: 0 8px 0 #10223a55; border: 3px solid #10223a; min-height: 360px; overflow: hidden; cursor: grab; touch-action: none; }
 #charsel .cs-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #charsel .cs-info { position: absolute; left: 12px; right: 12px; top: 10px; text-align: center; pointer-events: none; }
-#charsel .cs-name { font-size: 28px; font-weight: 800; line-height: 1.05; }
-#charsel .cs-tag { font-size: 15px; opacity: .8; line-height: 1.2; }
+#charsel .cs-name { font-size: 32px; font-weight: 900; line-height: 1.05; color: #fff; -webkit-text-stroke: 1.5px #10223a; text-shadow: 0 3px 0 #10223a; }
+#charsel .cs-tag { font-size: 15px; font-weight: 700; line-height: 1.2; }
 #charsel .cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; align-content: start; max-height: 420px; overflow-y: auto; padding: 2px; }
 #charsel .cs-pick { border: 3px solid transparent; background: #10223a10; border-radius: 14px; padding: 4px 4px 6px; cursor: pointer; font: inherit; color: inherit; text-align: center; }
 #charsel .cs-pick:hover { background: #10223a1c; }
-#charsel .cs-pick.on { border-color: #ff5a5f; background: #ffffff; box-shadow: 0 3px 0 #ff5a5f55; }
+#charsel .cs-pick { transition: transform .12s; }
+#charsel .cs-pick:hover { transform: translateY(-2px) rotate(-1deg); }
+#charsel .cs-pick.on { border-color: #10223a; background: #ffd23f; box-shadow: 0 4px 0 #10223a; }
 #charsel .cs-pick img, #charsel .cs-pick .ph { width: 100%; aspect-ratio: 1; display: block; border-radius: 10px; }
 #charsel .cs-pick .ph { background: #10223a10; }
-#charsel .cs-pick b { display: block; font-size: 13px; line-height: 1.1; margin-top: 2px; overflow-wrap: anywhere; }
-#charsel .cs-actions { display: flex; gap: 10px; margin-top: 14px; }
-#charsel .cs-actions button { flex: 1; border: 0; border-radius: 16px; padding: 12px; font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; box-shadow: 0 5px 0 #10223a55; }
-#charsel .cs-actions button:active { transform: translateY(3px); box-shadow: 0 2px 0 #10223a55; }
-#charsel .cs-go { background: #ff5a5f; color: #fff8ec; }
-#charsel .cs-back { background: #10223a14; color: #10223a; box-shadow: none !important; flex: 0 0 30% !important; }
-#charsel .cs-hint { text-align: center; font-size: 12px; opacity: .6; margin-top: 8px; }
+#charsel .cs-pick b { display: block; font-size: 13px; line-height: 1.1; margin-top: 2px; }
+#charsel .cs-actions { display: flex; gap: 14px; margin-top: 18px; }
+#charsel .cs-actions button { flex: 1; border: 0; border-radius: 22px; padding: 14px 22px; font: inherit; font-size: clamp(24px, 3.6vw, 36px); font-weight: 900; cursor: pointer;
+  box-shadow: 0 8px 0 #10223a; color: #fff; -webkit-text-stroke: 1.5px #10223a; transition: transform .12s; }
+#charsel .cs-actions button:hover { transform: translateY(-3px) rotate(-1deg) scale(1.02); }
+#charsel .cs-actions button:active { transform: translateY(5px); box-shadow: 0 3px 0 #10223a; }
+#charsel .cs-go { background: #ff5a5f; }
+#charsel .cs-back { background: #fff8ec; color: #10223a !important; -webkit-text-stroke: 0 !important; flex: 0 0 30% !important; font-size: clamp(20px, 3vw, 28px) !important; }
+#charsel .cs-hint { text-align: center; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 2px 0 #10223a; margin-top: 12px; }
 @media (max-width: 720px) {
   #charsel { align-items: flex-start; padding: 12px; }
-  #charsel .cs-card { padding: 14px 12px 14px; }
   #charsel h1 { font-size: 30px; }
   #charsel .cs-body { grid-template-columns: 1fr; gap: 10px; }
   #charsel .cs-stage { min-height: 0; height: 36vh; }
-  #charsel .cs-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); max-height: none; }
+  #charsel .cs-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); max-height: none; }
   #charsel .cs-name { font-size: 22px; }
   #charsel .cs-tag { font-size: 13px; }
   #charsel .cs-hint { display: none; }
@@ -68,9 +73,9 @@ function build() {
     <h1>PICK YOUR <span>ANGLER</span></h1>
     <div class="cs-body">
       <div class="cs-stage"><canvas></canvas><div class="cs-info"><div class="cs-name"></div><div class="cs-tag"></div></div></div>
-      <div class="cs-grid"></div>
+      <div class="cs-panel"><div class="cs-grid"></div></div>
     </div>
-    <div class="cs-actions"><button class="cs-back">Back</button><button class="cs-go">Lock in</button></div>
+    <div class="cs-actions"><button class="cs-back">Back</button><button class="cs-go">▶ LOCK IN</button></div>
     <div class="cs-hint">Arrow keys to browse, Enter to lock in. Drag to spin. Looks only: every angler has the same moves.</div>
   </div>`;
   document.body.appendChild(root);
