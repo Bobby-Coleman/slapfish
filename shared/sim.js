@@ -11,10 +11,14 @@
   // ---------------------------------------------------------------- tuning
   const CFG = {
     roundSeconds: 600, // timed mode length
+    map: 'harbor', // 'harbor' (Harbor Box) or 'plus' (Plus Pier)
+    gateHold: 7, // a drawbridge flipped by a button flips back after this long
     mode: 'rounds', // 'rounds': die and you're out until the next round; 'timed': most KOs, fast respawn
     winRounds: 5, // rounds mode: first to this many round wins takes the match
     roundCap: 100, // rounds mode: a round that runs this long goes to whoever has the most health
     roundBreak: 3, // seconds between rounds
+    frenzyAt: 40, // rounds mode: after this long the deep fish start biting faster and faster
+    frenzyRamp: 20, // seconds per extra 1x of sink speed once the frenzy starts
     tickRate: 30,
     playerSpeed: 7.6,
     heavySpeed: 6.6,
@@ -56,19 +60,6 @@
     biteWindow: 0.5, // reel while the bobber is pulled under for a perfect catch
     biteEvery: [1.5, 3], // seconds between bites
     perfectBonus: 1, // perfect catch: this many extra uses
-  };
-
-  const MAP = {
-    coreHalf: 12,
-    pierHalf: 3,
-    pierLen: 28,
-    tipStart: 21,
-    rack: { x: 0, z: 0, r: 1.1, grab: 2.3 },
-    obstacles: [
-      { x: 7, z: 7, r: 0.85 }, { x: -7, z: 7, r: 0.85 }, { x: 7, z: -7, r: 0.85 }, { x: -7, z: -7, r: 0.85 },
-      { x: 0, z: 17, r: 0.7 }, { x: 0, z: -17, r: 0.7 }, { x: 17, z: 0, r: 0.7 }, { x: -17, z: 0, r: 0.7 },
-    ],
-    spawns: [[-9, -9], [9, 9], [9, -9], [-9, 9], [0, -9.5], [0, 9.5], [-9.5, 0], [9.5, 0]],
   };
 
   const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -160,41 +151,197 @@
     for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
     return weights.length - 1;
   }
-  function onPlatformPoint(x, z) {
-    const ax = Math.abs(x), az = Math.abs(z);
-    if (ax <= MAP.coreHalf && az <= MAP.coreHalf) return true;
-    if (ax <= MAP.pierHalf && az <= MAP.pierLen) return true;
-    if (az <= MAP.pierHalf && ax <= MAP.pierLen) return true;
+  // ---------------------------------------------------------------- maps
+  // A map is static deck rectangles [x0, x1, z0, z1] plus things that move or change:
+  // movers (rafts and barges on a fixed timetable that anyone can stand on), gates (drawbridges that
+  // floor buttons raise and lower) and portal pads. Mover positions depend only on the clock, so clients
+  // can draw them from the snapshot time.
+  function rect(x0, x1, z0, z1) { return [Math.min(x0, x1), Math.max(x0, x1), Math.min(z0, z1), Math.max(z0, z1)]; }
+  // quarter turns for building symmetric maps: (x, z) -> (z, -x)
+  function rotP(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = z; z = -t; } return [x, z]; }
+  function rotR(k, r) { const a = rotP(k, r[0], r[2]), b = rotP(k, r[1], r[3]); return rect(a[0], b[0], a[1], b[1]); }
+  function inRect(r, x, z, m) { m = m || 0; return x >= r[0] - m && x <= r[1] + m && z >= r[2] - m && z <= r[3] + m; }
+
+  function emptyMap(id, name, desc) {
+    return { id, name, desc, rects: [], deep: [], racks: [], obstacles: [], boxes: [], spawns: [], fishSpots: [], gates: [], buttons: [], portals: [], movers: [], drops: { near: [], far: [] }, signs: [], tipBuoys: [] };
+  }
+
+  // The original: a square deck with four long piers, plus two rafts circling between the piers.
+  function buildPlus() {
+    const M = emptyMap('plus', 'Plus Pier', 'Four long piers. Deep water at the tips, rafts circling between them.');
+    M.rects.push(rect(-12, 12, -12, 12));
+    M.racks.push({ x: 0, z: 0 });
+    M.drops.near.push(rect(-10.5, 10.5, -10.5, 10.5));
+    for (let k = 0; k < 4; k++) {
+      const P = (x, z) => rotP(k, x, z), R = (r) => rotR(k, r);
+      M.rects.push(R(rect(-3, 3, 12, 28)));
+      M.deep.push(R(rect(-3, 3, 21, 28)));
+      M.drops.far.push(R(rect(-1.8, 1.8, 13.5, 26.5)));
+      let [x, z] = P(7, 7); M.obstacles.push({ x, z, r: 0.85 });
+      [x, z] = P(0, 17); M.obstacles.push({ x, z, r: 0.7 });
+      M.spawns.push(P(9, 9), P(0, 9.5));
+      [x, z] = P(0, 27.2); M.fishSpots.push({ x, z, tip: true });
+      for (const s of [[11.4, 7.5], [7.5, 11.4], [2.4, 20]]) { [x, z] = P(s[0], s[1]); M.fishSpots.push({ x, z }); }
+      [x, z] = P(2.4, 27.5); M.signs.push({ text: 'DEEP', x, z, rot: k * Math.PI / 2 });
+      M.tipBuoys.push(P(-6, 29));
+    }
+    for (const phase of [0, 0.5]) M.movers.push({ kind: 'raft', hw: 1.3, hd: 1.3, path: { type: 'circle', cx: 0, cz: 0, r: 18, period: 36, phase } });
+    return M;
+  }
+
+  // A square harbour around a lagoon. Four corner docks joined by drawbridges (buttons flip them), a rod
+  // island in the middle reached by shuttle barges, rafts circling the lagoon, fishing rafts doing laps
+  // outside, jetties into deep water, containers to hide behind, and portal pads across the corners.
+  function buildHarbor() {
+    const M = emptyMap('harbor', 'Harbor Box', 'A box of docks round a lagoon. Barges, rafts, drawbridges and portals.');
+    const O = 22, I = 16, G = 2;
+    M.rects.push(rect(-5, 5, -5, 5)); // rod island
+    M.racks.push({ x: 0, z: 0 });
+    M.obstacles.push({ x: 3.2, z: -3.2, r: 0.7 }, { x: -3.2, z: 3.2, r: 0.7 });
+    M.drops.near.push(rect(-4, 4, -4, 4));
+    for (let k = 0; k < 4; k++) {
+      const P = (x, z) => rotP(k, x, z), R = (r) => rotR(k, r);
+      let x, z;
+      // north side (turned four ways): two halves either side of the bridge gap, the corner, a jetty out to sea
+      M.rects.push(R(rect(-I, -G, I, O)), R(rect(G, I, I, O)), R(rect(I, O, I, O)), R(rect(O, O + 8, 17, 20)));
+      M.deep.push(R(rect(O + 3, O + 8, 17, 20)));
+      M.drops.near.push(R(rect(-14.5, -3.5, 17, 21)));
+      M.drops.far.push(R(rect(16.8, 21.2, 16.8, 17.5)), R(rect(O + 1, O + 7, 17.8, 19.2)));
+      // the drawbridge over the gap: north and south start down, east and west start up
+      const gi = M.gates.length;
+      M.gates.push({ kind: 'bridge', r: R(rect(-G, G, I, O)), def: k % 2 === 0 });
+      for (const bx of [-3.3, 3.3]) { [x, z] = P(bx, 21); M.buttons.push({ x, z, r: 0.9, gate: gi }); }
+      // cover: a shipping container on the side, a crate stack in the corner, barrels
+      M.boxes.push(R(rect(8.5, 13, 18.2, 20)), R(rect(18, 20, 18, 20)));
+      [x, z] = P(-8.5, 18.2); M.obstacles.push({ x, z, r: 0.85 });
+      [x, z] = P(-11, 21); M.obstacles.push({ x, z, r: 0.7 });
+      if (k % 2 === 0) { [x, z] = P(-13.5, 18.6); M.racks.push({ x, z }); }
+      if (k < 2) M.portals.push({ a: P(5.5, 19.2), b: rotP(k + 2, 5.5, 19.2) });
+      M.spawns.push(P(-6, 19), P(10.5, 17));
+      [x, z] = P(29, 18.5); M.fishSpots.push({ x, z, tip: true });
+      for (const s of [[21.2, 21.2], [-10, 16.6], [12, 21.3]]) { [x, z] = P(s[0], s[1]); M.fishSpots.push({ x, z }); }
+      [x, z] = P(29.6, 17.3); M.signs.push({ text: 'DEEP', x, z, rot: Math.PI / 2 + k * Math.PI / 2 });
+      M.tipBuoys.push(P(31.5, 21.5));
+      // shuttle barges from the island's corners to the docks' inner corners, docking at each end
+      M.movers.push({ kind: 'barge', hw: 1.6, hd: 1.6, path: { type: 'shuttle', a: P(6.2, 6.2), b: P(15, 15), period: 9, pause: 2, phase: k % 2 ? 0.5 : 0 } });
+    }
+    // two rafts circle the lagoon; two fishing rafts lap the outside of the box over deep water
+    for (const phase of [0, 0.5]) M.movers.push({ kind: 'raft', hw: 1.3, hd: 1.3, path: { type: 'circle', cx: 0, cz: 0, r: 10.5, period: 28, phase, dir: -1 } });
+    const lap = [[26, -18], [26, 18], [18, 26], [-18, 26], [-26, 18], [-26, -18], [-18, -26], [18, -26]];
+    for (const phase of [0, 0.5]) M.movers.push({ kind: 'raft', deep: true, hw: 1.5, hd: 1.5, path: { type: 'loop', pts: lap, period: 64, phase } });
+    return M;
+  }
+
+  const MAPS = { harbor: buildHarbor(), plus: buildPlus() };
+  for (const id in MAPS) {
+    const M = MAPS[id];
+    M.solids = M.obstacles.concat(M.racks.map((r) => ({ x: r.x, z: r.z, r: 1.1 })));
+  }
+
+  function moverPos(m, t) {
+    const P = m.path;
+    const u = (((t / P.period + (P.phase || 0)) % 1) + 1) % 1;
+    if (P.type === 'circle') {
+      const a = u * Math.PI * 2 * (P.dir || 1);
+      return { x: P.cx + Math.cos(a) * P.r, z: P.cz + Math.sin(a) * P.r };
+    }
+    if (P.type === 'shuttle') {
+      // wait at a, glide to b, wait at b, glide back
+      const q = P.pause / P.period, mv = 0.5 - q;
+      const k = u < q ? 0 : u < 0.5 ? smooth(0, 1, (u - q) / mv) : u < 0.5 + q ? 1 : 1 - smooth(0, 1, (u - 0.5 - q) / mv);
+      return { x: P.a[0] + (P.b[0] - P.a[0]) * k, z: P.a[1] + (P.b[1] - P.a[1]) * k };
+    }
+    // loop: constant speed round a closed polygon
+    const pts = P.pts;
+    if (!P.lens) { P.lens = pts.map((a, i) => { const b = pts[(i + 1) % pts.length]; return len(b[0] - a[0], b[1] - a[1]); }); P.total = P.lens.reduce((s, v) => s + v, 0); }
+    let d = u * P.total;
+    for (let i = 0; i < pts.length; i++) {
+      if (d <= P.lens[i]) { const a = pts[i], b = pts[(i + 1) % pts.length], f = d / P.lens[i]; return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f }; }
+      d -= P.lens[i];
+    }
+    return { x: pts[0][0], z: pts[0][1] };
+  }
+
+  // A world is one map plus its live state. The geometry helpers below read the active world W;
+  // every game points W at its own before it does anything, and the client points it at its copy.
+  function makeWorld(id) {
+    const map = MAPS[id] || MAPS[CFG.map];
+    const w = {
+      map, t: 0, gateVer: 0, nav: null,
+      movers: map.movers.map((m) => Object.assign({}, m, { x: 0, z: 0, px: 0, pz: 0 })),
+      gates: map.gates.map((g) => ({ r: g.r, def: g.def, pass: g.def, t: 0 })),
+      buttons: map.buttons.map((b) => ({ x: b.x, z: b.z, r: b.r, gate: b.gate, down: false, cd: 0 })),
+    };
+    worldAt(w, 0); worldAt(w, 0);
+    refreshWalls(w);
+    return w;
+  }
+  function resetWorld(w) {
+    for (const g of w.gates) { g.pass = g.def; g.t = 0; }
+    for (const b of w.buttons) { b.down = false; b.cd = 0; }
+    w.gateVer++;
+    refreshWalls(w);
+  }
+  // raised drawbridges are walls; everything else solid is a container or crate
+  function refreshWalls(w) { w.walls = w.map.boxes.concat(w.gates.filter((g) => !g.pass).map((g) => g.r)); }
+  function worldAt(w, t) {
+    w.t = t;
+    for (const m of w.movers) { const p = moverPos(m, t); m.px = m.x; m.pz = m.z; m.x = p.x; m.z = p.z; }
+  }
+  let W = null;
+  function useWorld(w) { W = w; }
+
+  function onStatic(x, z) {
+    for (const r of W.map.rects) if (inRect(r, x, z)) return true;
+    for (const g of W.gates) if (g.pass && inRect(g.r, x, z)) return true;
     return false;
   }
+  function moverAt(x, z, prev) {
+    for (const m of W.movers) {
+      const mx = prev ? m.px : m.x, mz = prev ? m.pz : m.z;
+      if (Math.abs(x - mx) <= m.hw && Math.abs(z - mz) <= m.hd) return m;
+    }
+    return null;
+  }
+  // standing on a raft or barge (and not on solid boards): ride along with it
+  function carry(o, xk, zk) {
+    xk = xk || 'x'; zk = zk || 'z';
+    if (onStatic(o[xk], o[zk])) return null;
+    const m = moverAt(o[xk], o[zk], true);
+    if (m) { o[xk] += m.x - m.px; o[zk] += m.z - m.pz; }
+    return m;
+  }
+  function onPlatformPoint(x, z) { return onStatic(x, z) || !!moverAt(x, z); }
   function onPlatform(x, z, m) {
     if (!m) return onPlatformPoint(x, z);
     return onPlatformPoint(x + m, z) && onPlatformPoint(x - m, z) && onPlatformPoint(x, z + m) && onPlatformPoint(x, z - m);
   }
-  function isPierTip(x, z) { return Math.abs(x) > MAP.tipStart || Math.abs(z) > MAP.tipStart; }
+  // deep water: pier tips, jetty ends and the fishing rafts out at sea
+  function isPierTip(x, z) {
+    for (const r of W.map.deep) if (inRect(r, x, z)) return true;
+    if (onStatic(x, z)) return false;
+    const m = moverAt(x, z);
+    return !!(m && m.deep);
+  }
   function tierFor(depth) {
     let t = TIERS[0];
     for (const tier of TIERS) if (depth >= tier.from) t = tier;
     return t;
   }
-  function randomPlatformPoint(preferPier) {
+  function randomPlatformPoint(far) {
+    const list = far && W.map.drops.far.length ? W.map.drops.far : W.map.drops.near;
+    const areas = list.map((r) => (r[1] - r[0]) * (r[3] - r[2]));
     for (let i = 0; i < 50; i++) {
-      let x, z;
-      if (preferPier) {
-        const along = rand(MAP.coreHalf + 2, MAP.pierLen - 1.5) * (Math.random() < 0.5 ? -1 : 1);
-        const across = rand(-MAP.pierHalf + 1, MAP.pierHalf - 1);
-        if (Math.random() < 0.5) { x = along; z = across; } else { x = across; z = along; }
-      } else {
-        x = rand(-MAP.coreHalf + 1.5, MAP.coreHalf - 1.5);
-        z = rand(-MAP.coreHalf + 1.5, MAP.coreHalf - 1.5);
-      }
-      if (!blockedByObstacle(x, z, 1.2) && len(x, z) > 3) return { x, z };
+      const r = list[pickWeighted(areas)];
+      const x = rand(r[0], r[1]), z = rand(r[2], r[3]);
+      if (onStatic(x, z) && !blockedByObstacle(x, z, 1.2)) return { x, z };
     }
-    return { x: 5, z: 5 };
+    return { x: (list[0][0] + list[0][1]) / 2, z: (list[0][2] + list[0][3]) / 2 };
   }
   function blockedByObstacle(x, z, r) {
-    for (const o of MAP.obstacles) if (len(x - o.x, z - o.z) < o.r + r) return true;
-    if (len(x - MAP.rack.x, z - MAP.rack.z) < MAP.rack.r + r) return true;
+    for (const o of W.map.solids) if (len(x - o.x, z - o.z) < o.r + r) return true;
+    for (const b of W.map.boxes) if (inRect(b, x, z, r)) return true;
+    for (const q of W.map.portals) if (len(x - q.a[0], z - q.a[1]) < 1 + r || len(x - q.b[0], z - q.b[1]) < 1 + r) return true;
     return false;
   }
   // Returns the outward water direction if the point is close enough to an edge to cast, else null.
@@ -211,33 +358,55 @@
     return best;
   }
 
-
-  // Barrels, the rod rack, and any giant clams currently deployed.
+  // Barrels, rod racks, and any giant clams currently deployed.
   function solidObstacles(S) {
-    const list = MAP.obstacles.concat([MAP.rack]);
-    if (S) for (const t of S.traps) if (t.kind === 'clam') list.push({ x: t.x, z: t.z, r: GADGETS.clam.r });
+    if (!S || !S.traps.some((t) => t.kind === 'clam')) return W.map.solids;
+    const list = W.map.solids.slice();
+    for (const t of S.traps) if (t.kind === 'clam') list.push({ x: t.x, z: t.z, r: GADGETS.clam.r });
     return list;
   }
-
-  // Closest point on the pier to (x, z), used for swimming back and climbing out.
-  function nearestPlatformPoint(x, z) {
-    const rects = [
-      [-MAP.coreHalf, MAP.coreHalf, -MAP.coreHalf, MAP.coreHalf],
-      [-MAP.pierHalf, MAP.pierHalf, -MAP.pierLen, MAP.pierLen],
-      [-MAP.pierLen, MAP.pierLen, -MAP.pierHalf, MAP.pierHalf],
-    ];
-    let best = null, bd = 1e9;
-    for (const [x0, x1, z0, z1] of rects) {
-      const px = clamp(x, x0, x1), pz = clamp(z, z0, z1);
-      const d = len(px - x, pz - z);
-      if (d < bd) { bd = d; best = { x: px, z: pz }; }
+  // push a circle out of an axis-aligned box; null if it isn't touching
+  function pushOutBox(b, x, z, r) {
+    const cx = clamp(x, b[0], b[1]), cz = clamp(z, b[2], b[3]);
+    const dx = x - cx, dz = z - cz, d = len(dx, dz);
+    if (d >= r) return null;
+    if (d > 1e-4) return { x: cx + (dx / d) * r, z: cz + (dz / d) * r };
+    const l = x - b[0], rt = b[1] - x, t = z - b[2], bt = b[3] - z, mn = Math.min(l, rt, t, bt);
+    if (mn === l) return { x: b[0] - r, z };
+    if (mn === rt) return { x: b[1] + r, z };
+    if (mn === t) return { x, z: b[2] - r };
+    return { x, z: b[3] + r };
+  }
+  // shove a player-sized circle out of barrels, racks, clams and boxes (raised bridges too when `walls`)
+  function resolveSolids(x, z, S, walls) {
+    const r = CFG.playerRadius;
+    for (const o of solidObstacles(S)) {
+      const dx = x - o.x, dz = z - o.z, d = len(dx, dz), min = o.r + r;
+      if (d < min && d > 0.0001) { x = o.x + (dx / d) * min; z = o.z + (dz / d) * min; }
     }
+    for (const b of walls ? W.walls : W.map.boxes) { const q = pushOutBox(b, x, z, r); if (q) { x = q.x; z = q.z; } }
+    return { x, z };
+  }
+
+  // Closest point on any boards to (x, z), used for swimming back and climbing out.
+  // Also says which way is "inward" (the middle of that deck) and which mover it is, if any.
+  function nearestPlatformPoint(x, z) {
+    let best = null, bd = 1e9;
+    const consider = (x0, x1, z0, z1, m) => {
+      const px = clamp(x, x0, x1), pz = clamp(z, z0, z1), d = len(px - x, pz - z);
+      if (d < bd) { bd = d; best = { x: px, z: pz, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, m: m || null }; }
+    };
+    for (const r of W.map.rects) consider(r[0], r[1], r[2], r[3]);
+    for (const g of W.gates) if (g.pass) consider(g.r[0], g.r[1], g.r[2], g.r[3]);
+    for (const m of W.movers) consider(m.x - m.hw, m.x + m.hw, m.z - m.hd, m.z + m.hd, m);
     return best;
   }
 
-  // Plain walking step (no dash or knockback). Mirrors integrate() so online clients can predict their own movement.
-  function walkStep(p, mx, mz, dt) {
+  // Plain walking step (no dash or knockback). Mirrors integrate() so online clients can predict their own
+  // movement. Pass the clock time t to also ride whatever raft or barge you're standing on.
+  function walkStep(p, mx, mz, dt, t) {
     const C = CFG;
+    if (t != null && W.movers.length) { worldAt(W, t); worldAt(W, t + dt); carry(p); }
     const heavy = p.weapon && WEAPONS[p.weapon.id] && WEAPONS[p.weapon.id].heavy;
     let speed = heavy ? C.heavySpeed : C.playerSpeed;
     if (p.slowT > 0) speed *= 0.6;
@@ -251,20 +420,166 @@
     const mm = onPlatform(p.x, p.z, m) ? m : 0.05;
     if (!onPlatform(nx, p.z, mm)) { nx = p.x; p.vx = 0; }
     if (!onPlatform(nx, nz, mm)) { nz = p.z; p.vz = 0; }
-    for (const o of MAP.obstacles.concat([MAP.rack])) {
-      const dx = nx - o.x, dz = nz - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
-      if (d < min && d > 0.0001) { nx = o.x + (dx / d) * min; nz = o.z + (dz / d) * min; }
-    }
-    p.x = nx; p.z = nz;
+    const q = resolveSolids(nx, nz, null, true);
+    p.x = q.x; p.z = q.z;
   }
 
-  // Spots the bot likes to fish from.
-  const FISH_SPOTS = [
-    { x: 0, z: 27.2, tip: true }, { x: 0, z: -27.2, tip: true }, { x: 27.2, z: 0, tip: true }, { x: -27.2, z: 0, tip: true },
-    { x: 11.4, z: 7.5 }, { x: 11.4, z: -7.5 }, { x: -11.4, z: 7.5 }, { x: -11.4, z: -7.5 },
-    { x: 7.5, z: 11.4 }, { x: -7.5, z: 11.4 }, { x: 7.5, z: -11.4 }, { x: -7.5, z: -11.4 },
-    { x: 2.4, z: 20 }, { x: -2.4, z: -20 }, { x: 20, z: -2.4 }, { x: -20, z: 2.4 },
-  ];
+  // ---------------------------------------------------------------- bot navigation
+  // A walking grid over the boards (2 m apart). Neighbours join where you can walk between them; "dash"
+  // links hop short water gaps. Bots follow a distance field toward their goal; anything the grid can't
+  // reach (the rod island, rafts) they go straight for, dashing over gaps and swimming the rest.
+  function walkable(x, z, r) {
+    if (!onStatic(x, z)) return false;
+    for (const o of W.map.solids) if (len(x - o.x, z - o.z) < o.r + r) return false;
+    for (const b of W.walls) if (inRect(b, x, z, r)) return false;
+    return true;
+  }
+  function anyDeck(x, z) {
+    for (const r of W.map.rects) if (inRect(r, x, z)) return true;
+    for (const g of W.gates) if (inRect(g.r, x, z)) return true;
+    return false;
+  }
+  function gateAt(x, z) { for (let i = 0; i < W.gates.length; i++) if (inRect(W.gates[i].r, x, z)) return i; return -1; }
+  function walkLine(x0, z0, x1, z1) {
+    const d = len(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / 0.5));
+    for (let i = 1; i <= n; i++) if (!walkable(x0 + ((x1 - x0) * i) / n, z0 + ((z1 - z0) * i) / n, 0.45)) return false;
+    return true;
+  }
+  function buildNav(w) {
+    const prevW = W; W = w;
+    const nodes = [], key = new Map(), SP = 2;
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (const r of w.map.rects.concat(w.gates.map((g) => g.r))) { x0 = Math.min(x0, r[0]); x1 = Math.max(x1, r[1]); z0 = Math.min(z0, r[2]); z1 = Math.max(z1, r[3]); }
+    const solidFree = (x, z, r) => !w.map.solids.some((o) => len(x - o.x, z - o.z) < o.r + r) && !w.map.boxes.some((b) => inRect(b, x, z, r));
+    for (let i = 0, x = Math.floor(x0) + 1; x < x1; x += SP, i++) for (let j = 0, z = Math.floor(z0) + 1; z < z1; z += SP, j++) {
+      const inside = (dx, dz) => anyDeck(x + dx, z + dz);
+      if (!inside(0, 0) || !inside(0.5, 0) || !inside(-0.5, 0) || !inside(0, 0.5) || !inside(0, -0.5) || !solidFree(x, z, 0.6)) continue;
+      key.set(i + ',' + j, nodes.length);
+      nodes.push({ x, z, i, j, gate: gateAt(x, z), nb: [] });
+    }
+    for (let a = 0; a < nodes.length; a++) {
+      const n = nodes[a];
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+        if (!di && !dj) continue;
+        const b = key.get((n.i + di) + ',' + (n.j + dj));
+        if (b == null) continue;
+        const o = nodes[b], mx = (n.x + o.x) / 2, mz = (n.z + o.z) / 2;
+        if (anyDeck(mx, mz) && solidFree(mx, mz, 0.5)) n.nb.push({ j: b, d: len(o.x - n.x, o.z - n.z) });
+      }
+      n.interior = n.nb.length === 8;
+    }
+    // dash links over short stretches of open water (never through a drawbridge gap)
+    for (let a = 0; a < nodes.length; a++) {
+      const n = nodes[a];
+      if (n.interior) continue;
+      for (let b = 0; b < nodes.length; b++) {
+        if (a === b) continue;
+        const o = nodes[b], d = len(o.x - n.x, o.z - n.z);
+        if (d < 2.9 || d > 6.2 || o.interior) continue;
+        let wet = 0, maxWet = 0, ok = true;
+        for (let s = 1; s < 20; s++) {
+          const x = n.x + ((o.x - n.x) * s) / 20, z = n.z + ((o.z - n.z) * s) / 20;
+          if (gateAt(x, z) >= 0 || !solidFree(x, z, 0.5)) { ok = false; break; }
+          if (anyDeck(x, z)) wet = 0; else { wet += d / 20; maxWet = Math.max(maxWet, wet); }
+        }
+        if (ok && maxWet > 0.5 && maxWet < 4.6) n.nb.push({ j: b, d: d + 3, dash: true });
+      }
+    }
+    W = prevW;
+    return { nodes, fields: new Map(), ver: -1 };
+  }
+  function navOf(w) {
+    if (!w.nav) w.nav = buildNav(w);
+    if (w.nav.ver !== w.gateVer) { w.nav.fields.clear(); w.nav.ver = w.gateVer; }
+    return w.nav;
+  }
+  const nodeOpen = (n) => n.gate < 0 || W.gates[n.gate].pass;
+  function nearestNode(nav, x, z, maxD) {
+    let best = -1, bd = maxD || 1e9;
+    for (let i = 0; i < nav.nodes.length; i++) {
+      const n = nav.nodes[i];
+      if (!nodeOpen(n)) continue;
+      const d = len(n.x - x, n.z - z);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
+  // distance from every node to `goal` (Dijkstra with a tiny binary heap), cached until a gate moves
+  function navField(nav, goal) {
+    let f = nav.fields.get(goal);
+    if (f) return f;
+    if (nav.fields.size > 48) nav.fields.clear();
+    f = new Float64Array(nav.nodes.length).fill(Infinity);
+    f[goal] = 0;
+    const heap = [[0, goal]];
+    const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    while (heap.length) {
+      const [d, a] = pop();
+      if (d > f[a]) continue;
+      for (const e of nav.nodes[a].nb) {
+        // links are symmetric enough on these maps to walk the field backwards;
+        // a raised drawbridge costs a detour to its button
+        const nd = d + e.d + (nodeOpen(nav.nodes[e.j]) ? 0 : 14);
+        if (nd < f[e.j]) { f[e.j] = nd; push([nd, e.j]); }
+      }
+    }
+    nav.fields.set(goal, f);
+    return f;
+  }
+  // Where to head next on the way to (tx, tz): { x, z, dash } (dash: take off toward x, z now).
+  function navRoute(x, z, tx, tz) {
+    if (walkLine(x, z, tx, tz)) return { x: tx, z: tz };
+    const nav = navOf(W);
+    const goal = nearestNode(nav, tx, tz, 4);
+    const me = nearestNode(nav, x, z, 3);
+    if (goal < 0 || me < 0) return { x: tx, z: tz, direct: true };
+    const f = navField(nav, goal);
+    if (!isFinite(f[me])) return { x: tx, z: tz, direct: true };
+    let cur = me, aim = nav.nodes[me];
+    for (let hop = 0; hop < 10 && cur !== goal; hop++) {
+      let nxt = null, bd = Infinity;
+      for (const e of nav.nodes[cur].nb) if (f[e.j] < f[cur] && f[e.j] + e.d < bd) { bd = f[e.j] + e.d; nxt = e; }
+      if (!nxt) break;
+      const n = nav.nodes[nxt.j];
+      if (!nodeOpen(n)) {
+        // the bridge is up: go and stand on its button (the nearest one, on our side)
+        if (hop > 0) break;
+        let btn = null, bb = 1e9;
+        for (const b of W.buttons) if (b.gate === n.gate && len(b.x - x, b.z - z) < bb) { bb = len(b.x - x, b.z - z); btn = b; }
+        return btn ? { x: btn.x, z: btn.z } : { x: aim.x, z: aim.z };
+      }
+      if (nxt.dash) {
+        // at the take-off point: jump; otherwise walk to it first
+        const here = nav.nodes[cur];
+        if (len(here.x - x, here.z - z) < 1.3) return { x: n.x, z: n.z, dash: true };
+        return { x: here.x, z: here.z };
+      }
+      if (hop === 0 || walkLine(x, z, n.x, n.z)) aim = n; else break;
+      cur = nxt.j;
+    }
+    if (cur === goal && walkLine(x, z, tx, tz)) return { x: tx, z: tz };
+    return { x: aim.x, z: aim.z };
+  }
+  // walking distance (or a pessimistic guess when the grid can't get there on foot)
+  function navDist(x, z, tx, tz) {
+    const nav = navOf(W), goal = nearestNode(nav, tx, tz, 4), me = nearestNode(nav, x, z, 3);
+    const guess = len(tx - x, tz - z) * 2 + 20;
+    if (goal < 0 || me < 0) return guess;
+    const f = navField(nav, goal);
+    return isFinite(f[me]) ? f[me] : guess;
+  }
+  // a nearby spot away from the edges, to back off toward
+  function homeNear(x, z) {
+    const nav = navOf(W);
+    let best = null, bd = 1e9;
+    for (const n of nav.nodes) {
+      if (!n.interior || !nodeOpen(n)) continue;
+      const d = len(n.x - x, n.z - z);
+      if (d < bd) { bd = d; best = n; }
+    }
+    return best || { x: 0, z: 0 };
+  }
 
   // ---------------------------------------------------------------- game
   function createGame(opts) {
@@ -274,6 +589,7 @@
       state: {
         phase: 'lobby', // lobby | play | over
         mode: (opts.cfg && opts.cfg.mode) || opts.mode || CFG.mode,
+        map: MAPS[opts.map || (opts.cfg && opts.cfg.map)] ? opts.map || opts.cfg.map : CFG.map,
         round: 0, // rounds mode: current round number
         roundT: 0, // time into the current round
         breakT: 0, // rounds mode: countdown to the next round (0 = a round is running)
@@ -297,18 +613,33 @@
     const S = g.state;
     const C = g.cfg;
     S.roundLeft = S.roundSeconds;
+    g.world = makeWorld(S.map);
+    useWorld(g.world);
+    g.setMap = function (id) {
+      if (!MAPS[id] || id === S.map) return;
+      S.map = id;
+      g.world = makeWorld(id);
+      useWorld(g.world);
+      S.rack = [];
+      syncRack();
+    };
 
     function emit(type, data) { g.events.push(Object.assign({ type, t: S.time }, data)); }
     function uid() { return g.nextId++; }
 
-    function rackSize() { return Math.min(6, Math.max(3, Object.keys(S.players).length + 1)); }
+    // rods: every rack on the map holds its own little stack
     function syncRack() {
-      const n = rackSize();
-      while (S.rack.length < n) S.rack.push({ ready: true, t: 0 });
-      while (S.rack.length > n) S.rack.pop();
+      const racks = g.world.map.racks.length, np = Object.keys(S.players).length;
+      const per = racks > 1 ? clamp(Math.ceil((np + 1) / racks), 2, 6) : Math.min(6, Math.max(3, np + 1));
+      for (let k = 0; k < racks; k++) {
+        const mine = S.rack.filter((r) => r.k === k);
+        for (let i = mine.length; i < per; i++) S.rack.push({ k, ready: true, t: 0 });
+        for (let i = per; i < mine.length; i++) S.rack.splice(S.rack.indexOf(mine[i]), 1);
+      }
     }
 
     g.addPlayer = function (id, name, isBot, difficulty) {
+      useWorld(g.world);
       const used = new Set(Object.values(S.players).map((p) => p.color));
       const color = COLORS.find((c) => !used.has(c)) || COLORS[Math.floor(Math.random() * COLORS.length)];
       const p = {
@@ -316,7 +647,7 @@
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
         hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, dotBy: null, lastW: null, lastHitW: null,
-        fishing: null, bubble: 0, lure: 0, gadget: null,
+        fishing: null, bubble: 0, lure: 0, gadget: null, portalLock: null,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
         brain: isBot ? { spot: null, target: 0, stuckT: 0, lastX: 0, lastZ: 0, think: 0, strafe: 1, aimErr: 0 } : null,
       };
@@ -347,6 +678,8 @@
       cur.gadget = cur.gadget || !!inp.gadget;
     };
     g.start = function () {
+      useWorld(g.world);
+      resetWorld(g.world);
       S.phase = 'play';
       S.time = 0;
       S.roundLeft = S.roundSeconds;
@@ -402,8 +735,9 @@
 
     function spawnPlayer(p) {
       const others = Object.values(S.players).filter((o) => o !== p && o.alive);
-      let best = MAP.spawns[0], bestD = -1;
-      for (const s of MAP.spawns) {
+      const spawns = g.world.map.spawns;
+      let best = spawns[0], bestD = -1;
+      for (const s of spawns) {
         let d = 999;
         for (const o of others) d = Math.min(d, len(o.x - s[0], o.z - s[1]));
         d += Math.random() * 3;
@@ -411,12 +745,15 @@
       }
       Object.assign(p, {
         x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, hp: C.maxHp, dashN: C.dashCharges, dashRT: 0, dashIF: 0, alive: true, air: false, swim: false, climbT: 0,
-        invulnT: C.spawnInvuln, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, lastHitW: null, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
+        invulnT: C.spawnInvuln, portalLock: null, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, lastHitW: null, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
       });
       const l = len(-p.x, -p.z) || 1;
       p.ax = -p.x / l; p.az = -p.z / l;
       emit('spawn', { id: p.id });
     }
+
+    // late in a round, lines sink faster so somebody lands a one-shot and the round ends
+    function frenzy() { return S.mode === 'rounds' && S.roundT > C.frenzyAt ? 1 + (S.roundT - C.frenzyAt) / C.frenzyRamp : 1; }
 
     function leaderKos() {
       let m = 0;
@@ -616,10 +953,11 @@
 
     function tryPickups(p, inp) {
       // Rods from the central rack
-      if (!p.hasRod && len(p.x - MAP.rack.x, p.z - MAP.rack.z) < MAP.rack.grab) {
-        const slot = S.rack.find((r) => r.ready);
+      if (!p.hasRod) g.world.map.racks.forEach((rk, k) => {
+        if (p.hasRod || len(p.x - rk.x, p.z - rk.z) > 2.3) return;
+        const slot = S.rack.find((r) => r.k === k && r.ready);
         if (slot) { slot.ready = false; slot.t = C.rackRespawn; p.hasRod = true; emit('rod', { id: p.id }); }
-      }
+      });
       for (let i = S.items.length - 1; i >= 0; i--) {
         const it = S.items[i];
         if (it.y > 0.05) continue;
@@ -763,6 +1101,7 @@
             let mult = isPierTip(p.x, p.z) ? C.pierTipMult : 1;
             if (p.lure > 0) { mult *= 2; p.lure--; }
             if (p.kos <= leaderKos() - C.catchUpGap) mult *= C.catchUpMult;
+            mult *= frenzy();
             p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z), biteIn: C.fishMinBite + rand(0.3, 1.2), biteT: 0, perfect: false };
             p.ax = dir.x; p.az = dir.z;
             emit('cast', { id: p.id, x: p.fishing.bx, z: p.fishing.bz, mult });
@@ -781,7 +1120,64 @@
       const ml = len(mx, mz);
       if (ml > 1) { mx /= ml; mz /= ml; }
       integrate(p, dt, mx, mz);
+      checkPortals(p);
       checkBlast(p);
+    }
+
+    // Portal pads: step (or fly) onto one and pop out of its partner. You have to step off before it works again.
+    function checkPortals(p) {
+      const ports = g.world.map.portals;
+      if (!ports.length || !p.alive) return;
+      if (p.portalLock != null) {
+        const q = ports[p.portalLock >> 1], e = p.portalLock & 1 ? q.b : q.a;
+        if (len(p.x - e[0], p.z - e[1]) < 1.7) return;
+        p.portalLock = null;
+      }
+      if (p.swim || p.climbT > 0 || p.y > 1.5 || p.y < -0.3) return;
+      for (let i = 0; i < ports.length; i++) for (let s = 0; s < 2; s++) {
+        const e = s ? ports[i].b : ports[i].a, o = s ? ports[i].a : ports[i].b;
+        if (len(p.x - e[0], p.z - e[1]) > 0.95) continue;
+        emit('portal', { id: p.id, x: e[0], z: e[1], tx: o[0], tz: o[1] });
+        p.x = o[0]; p.z = o[1];
+        p.portalLock = i * 2 + (s ? 0 : 1);
+        if (p.fishing) p.fishing = null;
+        return;
+      }
+    }
+
+    // Floor buttons flip their drawbridge; it flips back on its own after a while.
+    function setGate(i, pass, by) {
+      const gt = g.world.gates[i];
+      if (gt.pass === pass) return;
+      gt.pass = pass;
+      gt.t = pass !== gt.def ? C.gateHold : 0;
+      g.world.gateVer++;
+      refreshWalls(g.world);
+      emit('gate', { i, pass, by: by ? by.id : null, x: (gt.r[0] + gt.r[1]) / 2, z: (gt.r[2] + gt.r[3]) / 2 });
+    }
+    function stepGates(dt) {
+      g.world.gates.forEach((gt, i) => { if (gt.t > 0) { gt.t -= dt; if (gt.t <= 0) setGate(i, gt.def); } });
+      for (const b of g.world.buttons) {
+        b.cd = Math.max(0, b.cd - dt);
+        let by = null;
+        for (const p of Object.values(S.players)) if (p.alive && !p.air && !p.swim && p.climbT <= 0 && len(p.x - b.x, p.z - b.z) < b.r + 0.25) { by = p; break; }
+        if (by && !b.down && b.cd <= 0) { setGate(b.gate, !g.world.gates[b.gate].pass, by); b.cd = 0.6; emit('button', { x: b.x, z: b.z, id: by.id }); }
+        b.down = !!by;
+      }
+    }
+
+    // Rafts and barges carry whatever is standing on them: players, climbers' hand-holds, items, traps.
+    function carryAll() {
+      if (!g.world.movers.length) return;
+      for (const p of Object.values(S.players)) {
+        if (!p.alive || p.swim) continue;
+        if (p.climbT > 0) { carry(p, 'cx', 'cz'); continue; }
+        if (p.air) continue;
+        const dx = p.x, dz = p.z;
+        if (carry(p) && p.fishing) { p.fishing.bx += p.x - dx; p.fishing.bz += p.z - dz; }
+      }
+      for (const it of S.items) if (!(it.y > 0)) carry(it);
+      for (const t of S.traps) carry(t);
     }
 
     function useGadget(p, inp) {
@@ -947,11 +1343,13 @@
           const l = len(np.x - p.x, np.z - p.z) || 1;
           p.cx = np.x + ((np.x - p.x) / l) * 0.8;
           p.cz = np.z + ((np.z - p.z) / l) * 0.8;
-          // make sure we land comfortably on the boards, nudging toward the middle if needed
+          // make sure we land comfortably on the boards, nudging toward the middle of that deck if needed
           for (let i = 0; i < 20 && !onPlatform(p.cx, p.cz, 0.6); i++) {
-            const cl = len(p.cx, p.cz) || 1;
-            p.cx -= (p.cx / cl) * 0.3; p.cz -= (p.cz / cl) * 0.3;
+            const ddx = np.cx - p.cx, ddz = np.cz - p.cz, cl = len(ddx, ddz) || 1;
+            if (cl < 0.3) break;
+            p.cx += (ddx / cl) * 0.3; p.cz += (ddz / cl) * 0.3;
           }
+          const q = resolveSolids(p.cx, p.cz, S, true); p.cx = q.x; p.cz = q.z;
           p.climbT = C.climbTime;
           p.vx = p.vz = 0;
           emit('climb', { id: p.id });
@@ -971,12 +1369,7 @@
         }
         p.vy -= C.gravity * dt;
         p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt;
-        if (p.y < 1.4) {
-          for (const o of solidObstacles(S)) {
-            const dx = p.x - o.x, dz = p.z - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
-            if (d < min && d > 0.0001) { p.x = o.x + (dx / d) * min; p.z = o.z + (dz / d) * min; }
-          }
-        }
+        if (p.y < 1.4 && p.y > -0.3 && !(p.phaseT > 0)) { const q = resolveSolids(p.x, p.z, S, false); p.x = q.x; p.z = q.z; }
         if (p.y <= 0 && p.vy < 0 && onPlatformPoint(p.x, p.z) && p.y > -0.5) {
           p.y = 0; p.vy = 0; p.air = false;
           p.vx *= 0.3; p.vz *= 0.3;
@@ -1009,11 +1402,8 @@
         if (!onPlatform(nx, p.z, mm)) { nx = p.x; p.vx = 0; }
         if (!onPlatform(nx, nz, mm)) { nz = p.z; p.vz = 0; }
       }
-      // obstacles (a ghost dash goes straight through)
-      if (!(p.phaseT > 0)) for (const o of solidObstacles(S)) {
-        const dx = nx - o.x, dz = nz - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
-        if (d < min && d > 0.0001) { nx = o.x + (dx / d) * min; nz = o.z + (dz / d) * min; }
-      }
+      // obstacles, containers and raised drawbridges (a ghost dash goes straight through)
+      if (!(p.phaseT > 0)) { const q = resolveSolids(nx, nz, S, true); nx = q.x; nz = q.z; }
       p.x = nx; p.z = nz;
       if (!onPlatform(p.x, p.z, 0)) {
         // off the edge: a dash keeps flying until it ends, then you drop toward the water
@@ -1098,6 +1488,7 @@
           for (const o of solidObstacles(S)) {
             if (len(pr.x - o.x, pr.z - o.z) < o.r + pr.rad) { dead = true; break; }
           }
+          if (!dead) for (const b of g.world.walls) if (inRect(b, pr.x, pr.z, pr.rad)) { dead = true; break; }
         }
         if (!dead) {
           for (const t of Object.values(S.players)) {
@@ -1149,9 +1540,12 @@
     }
 
     g.step = function (dt) {
+      useWorld(g.world);
       if (S.phase === 'lobby') return;
-      if (S.phase === 'over') { S.time += dt; return; }
       S.time += dt;
+      worldAt(g.world, S.time);
+      if (S.phase === 'over') return;
+      carryAll();
       const rounds = S.mode === 'rounds';
       if (rounds && S.breakT > 0) {
         // between rounds: the survivor gets a short victory lap, then everyone drops back in
@@ -1159,10 +1553,14 @@
         if (S.breakT <= 0) { startRound(); return; }
       }
       if (!rounds) S.roundLeft -= dt;
-      else if (S.breakT <= 0) S.roundT += dt;
+      else if (S.breakT <= 0) {
+        S.roundT += dt;
+        if (S.roundT >= C.frenzyAt && S.roundT - dt < C.frenzyAt) emit('frenzy', {});
+      }
       for (const p of Object.values(S.players)) if (p.bot) g.setInput(p.id, botThink(g, p, dt));
       for (const p of Object.values(S.players)) stepPlayer(p, g.inputs[p.id], dt);
       separatePlayers();
+      stepGates(dt);
       stepProjectiles(dt);
       stepTraps(dt);
       stepWorld(dt);
@@ -1195,9 +1593,11 @@
     g.drainEvents = function () { const e = g.events; g.events = []; return e; };
 
     g.snapshot = function () {
+      useWorld(g.world);
       const r2 = (v) => Math.round(v * 100) / 100;
       return {
-        phase: S.phase, time: r2(S.time), roundLeft: r2(S.roundLeft), roundSeconds: S.roundSeconds, overtime: !!S.overtime, winner: S.winner,
+        map: S.map, gates: g.world.gates.map((gt) => (gt.pass ? 1 : 0)), buttons: g.world.buttons.map((b) => (b.down ? 1 : 0)),
+        phase: S.phase, time: Math.round(S.time * 1000) / 1000, roundLeft: r2(S.roundLeft), roundSeconds: S.roundSeconds, overtime: !!S.overtime, winner: S.winner,
         mode: S.mode, round: S.round, roundT: r2(S.roundT), breakT: r2(S.breakT), roundWinner: S.roundWinner, winRounds: C.winRounds, roundCap: C.roundCap,
         players: Object.values(S.players).map((p) => ({
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
@@ -1211,7 +1611,7 @@
         projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, back: p.back || undefined, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
         items: S.items.map((i) => ({ id: i.id, kind: i.kind, weapon: i.weapon, x: r2(i.x), z: r2(i.z), y: r2(i.y || 0) })),
         pelicans: S.pelicans.map((p) => ({ id: p.id, x: r2(p.x), z: r2(p.z), dx: p.dx, dz: p.dz, tx: p.tx, tz: p.tz, kind: p.kind, dropped: p.dropped })),
-        rack: S.rack.map((r) => r.ready),
+        rack: g.world.map.racks.map((_, k) => S.rack.filter((r) => r.k === k).map((r) => r.ready)),
       };
     };
 
@@ -1219,26 +1619,6 @@
   }
 
   // ---------------------------------------------------------------- bot
-  // Routes around water: walking from the core to a pier tip goes via the pier base.
-  function navTarget(p, tx, tz) {
-    const onPierX = (x, z) => Math.abs(z) <= MAP.pierHalf && Math.abs(x) > MAP.coreHalf;
-    const onPierZ = (x, z) => Math.abs(x) <= MAP.pierHalf && Math.abs(z) > MAP.coreHalf;
-    const pierOf = (x, z) => (onPierX(x, z) ? 'x' + Math.sign(x) : onPierZ(x, z) ? 'z' + Math.sign(z) : null);
-    const mine = pierOf(p.x, p.z), theirs = pierOf(tx, tz);
-    if (mine === theirs) return { x: tx, z: tz };
-    if (mine) {
-      // walk back toward the core along the pier centreline
-      const base = mine[0] === 'x' ? { x: Math.sign(p.x) * (MAP.coreHalf - 1.5), z: 0 } : { x: 0, z: Math.sign(p.z) * (MAP.coreHalf - 1.5) };
-      return base;
-    }
-    if (theirs) {
-      const base = theirs[0] === 'x' ? { x: Math.sign(tx) * (MAP.coreHalf - 1), z: 0 } : { x: 0, z: Math.sign(tz) * (MAP.coreHalf - 1) };
-      if (len(p.x - base.x, p.z - base.z) > 1.2 && (Math.abs(p.x) < MAP.coreHalf - 0.5 && Math.abs(p.z) < MAP.coreHalf - 0.5)) return base;
-      return { x: tx, z: tz };
-    }
-    return { x: tx, z: tz };
-  }
-
   const BOT_SKILL = {
     easy: { aimErr: 0.35, react: 0.5, fireRate: 0.5, greed: 0.6 },
     normal: { aimErr: 0.18, react: 0.25, fireRate: 0.8, greed: 1 },
@@ -1252,9 +1632,14 @@
     const out = { mx: 0, mz: 0, ax: p.ax, az: p.az, fire: false, dash: false, fish: false, use: false, gadget: false, aimDist: 8 };
     if (!p.alive || p.climbT > 0) { b.spot = null; return out; }
     if (p.swim || p.air) {
-      // swim (or drift) back toward the nearest bit of pier, aiming for the middle when airborne
+      // swim (or drift) back to the boards, preferring ones on the way to wherever we were headed
       b.spot = null;
-      const t = p.swim ? nearestPlatformPoint(p.x, p.z) : { x: 0, z: 0 };
+      let t = nearestPlatformPoint(p.x + p.vx * (p.air ? 0.4 : 0), p.z + p.vz * (p.air ? 0.4 : 0));
+      if (p.swim && b.goal) {
+        const gx = b.goal.x - p.x, gz = b.goal.z - p.z, gl = len(gx, gz) || 1, k = Math.min(gl, 6) / gl;
+        const ahead = nearestPlatformPoint(p.x + gx * k, p.z + gz * k);
+        if (len(ahead.x - p.x, ahead.z - p.z) < len(t.x - p.x, t.z - p.z) + 4) t = ahead;
+      }
       const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz) || 1;
       out.mx = dx / d; out.mz = dz / d;
       // hop out of the water once the boards are in reach
@@ -1271,13 +1656,15 @@
     const enemyArmed = enemy && enemy.weapon;
 
     const moveTo = (tx, tz, stopAt) => {
-      const n = navTarget(p, tx, tz);
-      let dx = n.x - p.x, dz = n.z - p.z;
-      const d = len(dx, dz);
+      b.goal = { x: tx, z: tz };
+      const d = len(tx - p.x, tz - p.z);
       if (d < (stopAt || 0.3)) return true;
-      dx /= d; dz /= d;
-      // steer around barrels and the rack
-      for (const o of MAP.obstacles.concat([MAP.rack])) {
+      const n = navRoute(p.x, p.z, tx, tz);
+      let dx = n.x - p.x, dz = n.z - p.z;
+      const nd = len(dx, dz) || 1;
+      dx /= nd; dz /= nd;
+      // steer around barrels and racks
+      for (const o of g.world.map.solids) {
         if (len(o.x - tx, o.z - tz) < o.r + 1.5) continue;
         const ox = o.x - p.x, oz = o.z - p.z;
         const along = ox * dx + oz * dz;
@@ -1290,6 +1677,11 @@
         }
       }
       out.mx = dx; out.mz = dz;
+      // water in the way: take a dash link, hop to a raft or deck in reach, or (now and then) jump in and swim
+      if (p.dashN > 0 && p.dashCd <= 0 && d > 2 && !onPlatform(p.x + dx * 1.1, p.z + dz * 1.1, 0.2)) {
+        const landing = [2.5, 3.5, 4.5, 5.5, 6.5].some((k) => onPlatformPoint(p.x + dx * k, p.z + dz * k));
+        if (n.dash || landing || (n.direct && d < 22 && Math.random() < 0.03)) out.dash = true;
+      }
       return false;
     };
 
@@ -1357,14 +1749,16 @@
       const ca = Math.cos(b.aimErr), sa = Math.sin(b.aimErr);
       out.ax = (tx / tl) * ca - (tz / tl) * sa; out.az = (tx / tl) * sa + (tz / tl) * ca;
       out.aimDist = ed;
+      let routed = true;
       if (bestItem && bestItem.kind !== 'fish' && len(bestItem.x - p.x, bestItem.z - p.z) < 5) {
         moveTo(bestItem.x, bestItem.z);
       } else if (ed > want + 1) moveTo(enemy.x, enemy.z);
+      else if (!(routed = false)) { /* unreachable */ }
       else if (ed < want - 1.5 && !melee) { out.mx = -tx / tl; out.mz = -tz / tl; }
       else { out.mx = (-tz / tl) * b.strafe * 0.7; out.mz = (tx / tl) * b.strafe * 0.7; }
-      // don't hug the edge: drift back toward the middle when near water
-      if (!onPlatform(p.x + out.mx * 1.5, p.z + out.mz * 1.5, 0.8)) {
-        const home = navTarget(p, 0, 0);
+      // don't hug the edge while fighting: drift back toward the middle when near water
+      if (!routed && !onPlatform(p.x + out.mx * 1.5, p.z + out.mz * 1.5, 0.8)) {
+        const home = homeNear(p.x, p.z);
         const hx = home.x - p.x, hz = home.z - p.z, hl = len(hx, hz) || 1;
         out.mx = out.mx * 0.4 + (hx / hl) * 0.9; out.mz = out.mz * 0.4 + (hz / hl) * 0.9;
         const l = len(out.mx, out.mz) || 1; out.mx /= l; out.mz /= l;
@@ -1382,7 +1776,7 @@
     // --- unarmed with an armed enemy close by: dash away (there's no slapping)
     if (enemy && !p.weapon && enemyArmed && ed < 4.5 && p.dashN > 0 && Math.random() < 0.08) {
       const tx = enemy.x - p.x, tz = enemy.z - p.z, tl = len(tx, tz) || 1;
-      const home = navTarget(p, 0, 0), hx = home.x - p.x, hz = home.z - p.z, hl = len(hx, hz) || 1;
+      const home = homeNear(p.x, p.z), hx = home.x - p.x, hz = home.z - p.z, hl = len(hx, hz) || 1;
       out.mx = -tx / tl * 0.6 + hx / hl * 0.4; out.mz = -tz / tl * 0.6 + hz / hl * 0.4;
       out.dash = true;
       return out;
@@ -1390,13 +1784,18 @@
 
     if (bestItem) { moveTo(bestItem.x, bestItem.z); return out; }
 
-    if (!p.hasRod) { moveTo(MAP.rack.x, MAP.rack.z, 1.5); return out; }
+    if (!p.hasRod) {
+      let rk = null, rd = 1e9;
+      for (const r of g.world.map.racks) { const d = navDist(p.x, p.z, r.x, r.z); if (d < rd) { rd = d; rk = r; } }
+      moveTo(rk.x, rk.z, 1.5);
+      return out;
+    }
 
     // --- go fishing
     if (!b.spot) {
       let best = null, bs = -1e9;
-      for (const s of FISH_SPOTS) {
-        let score = -len(s.x - p.x, s.z - p.z) * 0.5 + Math.random() * 6;
+      for (const s of g.world.map.fishSpots) {
+        let score = -navDist(p.x, p.z, s.x, s.z) * 0.5 + Math.random() * 6;
         if (enemy) score += Math.min(len(s.x - enemy.x, s.z - enemy.z), 20);
         if (s.tip) score += 3 * skill.greed;
         if (score > bs) { bs = score; best = s; }
@@ -1415,5 +1814,5 @@
     return out;
   }
 
-  return { rarityOdds, walkStep, nearestPlatformPoint, GADGETS, BYCATCH, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { rarityOdds, walkStep, nearestPlatformPoint, MAPS, makeWorld, useWorld, worldAt, moverPos, refreshWalls, GADGETS, BYCATCH, CFG, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });

@@ -132,22 +132,30 @@ Balance intent: a gadget alone almost never KOs anyone at low %; it builds damag
 
 | Rule | Value |
 |---|---|
-| Damage | Starts at 0%, no cap, resets on KO |
-| Armor cap | 50 |
-| Walk speed | 7.2 (6.0 with a Hammerhead, 60% when inked) |
-| Dash | Speed 19 for 0.16 s, 1.4 s cooldown. Also cancels fishing. |
-| Respawn | 5 s, then 1.5 s of invulnerability |
-| KO | Launched (or pushed while swimming) past the buoy ring at 40 units from the center |
+| Health | 100. The lower it gets, the farther hits launch you. The bar throbs below 35. |
+| Armor cap | 50 (absorbs damage, and you fly 20% less while it lasts) |
+| Walk speed | 7.6 (6.6 with a Hammerhead, 60% when inked) |
+| Dash | 2 charges, each recharges in 1.2 s. Speed 30 for 0.2 s (about 6 m), 0.15 s of dodge frames. Crosses water gaps and cancels fishing. |
+| Water dash | Dash while swimming to hop out of the water toward the boards. |
+| Respawn | Rounds: out until the next round. Timed: 1.5 s, then 1.2 s of invulnerability. |
+| KO | Health hits 0, or launched past the buoy ring 40 m from the centre. Water is never a KO. |
 | KO credit | The last player to hit you within 8 s |
-| Gravity | 30. You have a little air control (DI) while flying. |
-| Water | Swim speed 3.4. Touch the pier to climb out (0.5 s). Hits in the water push you farther out. |
-| Walking off the edge | Not possible. Only knockback can push you off. |
-| Arena | 24 x 24 central platform, four 6-wide piers out to 28 units. Barrels give cover. |
+| Water | Swim speed 5. Touch any boards (rafts and barges too) to climb out. |
+| Walking off the edge | Not possible. Dashes and knockback can carry you off. |
+
+### Maps
+
+Map geometry lives in `shared/sim.js` (`MAPS`). A map is static deck rectangles plus things that move or change. Mover positions depend only on the clock, so clients draw them from the snapshot time and predict riding them.
+
+- **Harbor Box** (default): a square of docks round a lagoon. Each side has a drawbridge in the middle; north and south start down, east and west start up. Floor buttons beside each bridge flip it, and it flips back after 7 s, so you can run over and raise it behind you. A raised bridge is a wall: no walking, dashing or shooting through it. The rod island in the middle is reached by four shuttle barges that dock for 2 s at each end, two rafts circle the lagoon, and two fishing rafts lap the outside of the box over deep water. Jetty ends and the outside rafts are deep water. Shipping containers and crate stacks give cover; two pairs of portal pads link opposite sides. Three rod racks: the island and two on the docks.
+- **Plus Pier**: the original square deck with four long piers (deep water at the tips), plus two rafts circling between the piers.
+
+Bots walk a 2 m grid over the boards, dash short water gaps, press buttons for raised bridges, and jump in and swim for places they can't walk to.
 
 ### Round and scoring
 
-- Rounds last 10 minutes by default (3 and 5 minute options for quick games).
-- Most KOs wins. Fewer times KO'd breaks a tie. If still tied, overtime runs for up to 60 s until someone pulls ahead.
+- **Rounds** (default): last one standing takes the round, first to 5 rounds wins. After 40 s a feeding frenzy starts: lines sink faster and faster, so somebody lands a one-shot. A round that reaches 100 s goes to whoever has the most health.
+- **Timed** (5 or 10 minutes): most KOs wins. Fewer times KO'd breaks a tie. If still tied, overtime runs for up to 60 s until someone pulls ahead.
 
 ## Pacing targets and what the bots show
 

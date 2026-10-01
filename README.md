@@ -2,6 +2,8 @@
 
 A multiplayer pier brawler where every fish is a weapon. Grab a rod, cast off the pier, and fight with whatever you reel in. The longer your line stays in, the rarer the fish, but one hit snaps your line.
 
+Two maps: **Harbor Box**, a square of docks round a lagoon with shuttle barges, rafts, drawbridges you raise with floor buttons, and portal pads; and **Plus Pier**, the original cross of piers. Details in [docs/DESIGN.md](docs/DESIGN.md).
+
 ## Play
 
 **Solo vs bots:** open `dist/slapfish.html` in a browser (it needs internet to load Three.js from a CDN).

@@ -180,6 +180,10 @@
     .logo { font-size: 46px; }
     #fishing { width: 130px; right: 8px; }
     #gauge { height: 170px; }
+    #timer { font-size: 16px; min-width: 0; padding: 1px 10px; }
+    .score { font-size: 11px; padding: 1px 6px 1px 4px; gap: 4px; }
+    .score .dot { width: 10px; height: 10px; }
+    .score .nm { max-width: 54px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
   /* screen effects */
   #splat, #blind, #storm, #killcam { position: absolute; inset: 0; pointer-events: none; }
@@ -332,11 +336,12 @@
       </div>
       <div class="mpanel">
         <div class="row"><label>Name</label><input id="name" type="text" maxlength="16" value="Bobby"></div>
+        <div class="row"><label>Map</label><div class="seg" id="segMap"><button data-v="harbor" class="on">Harbor Box</button><button data-v="plus">Plus Pier</button></div></div>
         <div class="row"><label>Mode</label><div class="seg" id="segRound"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
-        <div class="row"><label>Bots</label><div class="seg" id="segBots"><button data-v="1">1</button><button data-v="2" class="on">2</button><button data-v="3">3</button></div></div>
+        <div class="row"><label>Bots</label><div class="seg" id="segBots"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3" class="on">3</button><button data-v="5">5</button></div></div>
         <div class="row"><label>Skill</label><div class="seg" id="segDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
         <div class="howto">
-          <div><b>1</b> Grab a rod from the middle</div>
+          <div><b>1</b> Grab a rod from a rack</div>
           <div><b>2</b> Cast off any edge: <kbd>R</kbd></div>
           <div><b>3</b> Whack people: <kbd>Click</kbd></div>
           <div><b>4</b> Dash everywhere: <kbd>Space</kbd></div>
@@ -364,6 +369,7 @@
     <button class="big play" id="btnConnect">Join room</button>
     <div id="lobby" class="hidden">
       <ul id="lobbyList"></ul>
+      <div class="row"><label>Map</label><div class="seg" id="segMapNet"><button data-v="harbor" class="on">Harbor Box</button><button data-v="plus">Plus Pier</button></div></div>
       <div class="row"><label>Round</label><div class="seg" id="segRoundNet"><button data-v="rounds" class="on">Rounds (first to 5)</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
       <div class="row"><label>Add bots</label><div class="seg" id="segBotsNet"><button data-v="0" class="on">0</button><button data-v="1">1</button><button data-v="2">2</button></div></div>
       <button class="big alt" id="btnStartNet">Start round</button>

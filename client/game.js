@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const Sim = window.SlapSim;
-const { WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, GADGETS, MAP, CFG } = Sim;
+const { WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, GADGETS, MAPS, CFG } = Sim;
 const STEP = 1 / 30;
 const WATER_Y = -0.9;
 
@@ -90,124 +90,51 @@ function animateOcean(t) {
   oceanGeo.computeVertexNormals();
 }
 
-// pier
-const pier = new THREE.Group();
-scene.add(pier);
+// ------------------------------------------------------------------ map
+// Everything on the map is built from the sim's map data: decks, posts, cover, rod racks, drawbridges,
+// floor buttons, portal pads, rafts and barges. Rebuilt whenever the map changes (the menu preview too).
 const woodA = '#d9a066', woodB = '#c98d55', woodC = '#b97c47', postCol = '#7a5230';
-function plankStrip(x0, x1, z0, z1, alongX) {
+const postGeo = new THREE.CylinderGeometry(0.28, 0.32, 3.2, 6);
+const GATE_COLORS = ['#ffd23f', '#ff6bcb', '#3fa7ff', '#5ee07a'];
+const PORTAL_COLORS = ['#c86bff', '#2ee6d6'];
+const CONTAINER_COLORS = ['#e8613c', '#3fa7ff', '#5ccf6b', '#ffb22e'];
+let mapGroup = null, mapView = null;
+
+function plankStrip(parent, x0, x1, z0, z1, alongX, y) {
   // planks run perpendicular to "along"
-  const n = Math.round(alongX ? (x1 - x0) : (z1 - z0));
+  const n = Math.max(1, Math.round(alongX ? x1 - x0 : z1 - z0));
+  const step = (alongX ? x1 - x0 : z1 - z0) / n;
   for (let i = 0; i < n; i++) {
     const col = [woodA, woodB, woodC][(i * 7 + (alongX ? 1 : 0)) % 3];
-    const w = 0.94;
+    const w = step * 0.94;
     const geo = alongX ? new THREE.BoxGeometry(w, 0.4, z1 - z0) : new THREE.BoxGeometry(x1 - x0, 0.4, w);
     const m = mesh(geo, col);
-    if (alongX) m.position.set(x0 + i + 0.5, -0.2, (z0 + z1) / 2);
-    else m.position.set((x0 + x1) / 2, -0.2, z0 + i + 0.5);
-    pier.add(m);
+    if (alongX) m.position.set(x0 + (i + 0.5) * step, (y || 0) - 0.2, (z0 + z1) / 2);
+    else m.position.set((x0 + x1) / 2, (y || 0) - 0.2, z0 + (i + 0.5) * step);
+    parent.add(m);
   }
 }
-const H = MAP.coreHalf, PH = MAP.pierHalf, PL = MAP.pierLen;
-plankStrip(-H, H, -H, H, true);
-plankStrip(-PH, PH, H, PL, false);
-plankStrip(-PH, PH, -PL, -H, false);
-plankStrip(H, PL, -PH, PH, true);
-plankStrip(-PL, -H, -PH, PH, true);
-// posts
-const postGeo = new THREE.CylinderGeometry(0.28, 0.32, 3.2, 6);
-function post(x, z) { const p = mesh(postGeo, postCol); p.position.set(x, -1.3, z); pier.add(p); }
-for (let i = -H; i <= H; i += 4) { post(i, H); post(i, -H); post(H, i); post(-H, i); }
-for (let i = H + 4; i <= PL; i += 4) { post(PH, i); post(-PH, i); post(PH, -i); post(-PH, -i); post(i, PH); post(i, -PH); post(-i, PH); post(-i, -PH); }
-// pier tip deep-water buoys
-const tips = [[0, PL + 2.5], [0, -PL - 2.5], [PL + 2.5, 0], [-PL - 2.5, 0]];
-const buoySpots = [[-6, PL + 1], [6, -PL - 1], [PL + 1, 6], [-PL - 1, -6]];
-const buoys = [];
-for (const [x, z] of buoySpots) {
-  const b = new THREE.Group();
-  const body = mesh(new THREE.CylinderGeometry(0.5, 0.7, 1.2, 8), '#ff5a5f');
-  const band = mesh(new THREE.CylinderGeometry(0.52, 0.6, 0.3, 8), '#ffffff');
-  band.position.y = 0.1;
-  const flag = mesh(new THREE.BoxGeometry(0.05, 0.6, 0.8), '#164f96');
-  flag.position.set(0, 1.3, 0.35);
-  const pole = mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 4), '#ffffff');
-  pole.position.y = 1.1;
-  b.add(body, band, pole, flag);
-  b.position.set(x, WATER_Y, z);
-  scene.add(b);
-  buoys.push(b);
-}
-// a ring of little buoys marks the edge of the map: get launched past it and you're out
-for (let i = 0; i < 48; i++) {
-  const a = (i / 48) * Math.PI * 2;
-  const b = mesh(new THREE.SphereGeometry(0.35, 8, 6), i % 2 ? '#ffd23f' : '#ff5a5f');
-  b.position.set(Math.cos(a) * CFG.blastRadius, WATER_Y, Math.sin(a) * CFG.blastRadius);
-  b.userData.phase = i;
-  scene.add(b);
-  buoys.push(b);
-}
-
-// "DEEP" signs at the pier tips
-function makeSign(text, x, z, rotY) {
+function makeSign(text, x, z, rotY, parent, bg) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 96;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#164f96'; ctx.fillRect(0, 0, 256, 96);
+  ctx.fillStyle = bg || '#164f96'; ctx.fillRect(0, 0, 256, 96);
   ctx.fillStyle = '#fff'; ctx.font = 'bold 54px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, 128, 50);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const g = new THREE.Group();
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.8), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+  // two faces back to back so the words read the right way round from both sides
+  const board = new THREE.Group();
+  for (const r of [0, Math.PI]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.8), new THREE.MeshBasicMaterial({ map: tex })); f.rotation.y = r; board.add(f); }
   board.position.y = 1.6;
   const pole = mesh(new THREE.BoxGeometry(0.12, 1.6, 0.12), postCol);
   pole.position.y = 0.8;
   g.add(board, pole);
   g.position.set(x, 0, z);
   g.rotation.y = rotY;
-  scene.add(g);
+  (parent || scene).add(g);
   return g;
-}
-makeSign('RODS', 0, 0, 0).position.y = 2.2;
-makeSign('DEEP', 2.4, PL - 0.5, 0);
-makeSign('DEEP', -2.4, -PL + 0.5, Math.PI);
-makeSign('DEEP', PL - 0.5, -2.4, Math.PI / 2);
-makeSign('DEEP', -PL + 0.5, 2.4, -Math.PI / 2);
-
-// obstacles: barrels + rope coils
-for (const o of MAP.obstacles) {
-  const g = new THREE.Group();
-  const big = o.r > 0.8;
-  const col = big ? '#e8613c' : '#3fa7ff';
-  const b = mesh(new THREE.CylinderGeometry(o.r, o.r, 1.4, 10), col);
-  b.position.y = 0.7;
-  const r1 = mesh(new THREE.CylinderGeometry(o.r + 0.04, o.r + 0.04, 0.12, 10), '#3b3b4f');
-  r1.position.y = 0.3;
-  const r2 = r1.clone(); r2.position.y = 1.1;
-  g.add(b, r1, r2);
-  g.position.set(o.x, 0, o.z);
-  scene.add(g);
-}
-// rod rack in the middle
-const rack = new THREE.Group();
-scene.add(rack);
-{
-  const base = mesh(new THREE.CylinderGeometry(MAP.rack.r, MAP.rack.r + 0.2, 0.5, 8), '#7a5230');
-  base.position.y = 0.25;
-  const top = mesh(new THREE.CylinderGeometry(0.15, 0.15, 2.4, 6), '#7a5230');
-  top.position.y = 1.4;
-  const roof = mesh(new THREE.ConeGeometry(1.4, 0.8, 8), '#ff5a5f');
-  roof.position.y = 2.9;
-  rack.add(base, top, roof);
-}
-const rackRods = [];
-function ensureRackRods(n) {
-  while (rackRods.length < n) { const r = makeRod(); rack.add(r); rackRods.push(r); }
-  rackRods.forEach((r, i) => {
-    const a = (i / n) * Math.PI * 2;
-    r.position.set(Math.cos(a) * 0.85, 0.5, Math.sin(a) * 0.85);
-    r.rotation.set(Math.sin(a) * 0.2, 0, -Math.cos(a) * 0.2);
-    r.visible = i < n;
-  });
 }
 function makeRod() {
   const g = new THREE.Group();
@@ -223,6 +150,275 @@ function makeRod() {
   g.add(stick, grip, reel, tip);
   g.userData.tip = tip;
   return g;
+}
+function makeBuoy() {
+  const b = new THREE.Group();
+  const body = mesh(new THREE.CylinderGeometry(0.5, 0.7, 1.2, 8), '#ff5a5f');
+  const band = mesh(new THREE.CylinderGeometry(0.52, 0.6, 0.3, 8), '#ffffff');
+  band.position.y = 0.1;
+  const flag = mesh(new THREE.BoxGeometry(0.05, 0.6, 0.8), '#164f96');
+  flag.position.set(0, 1.3, 0.35);
+  const pole = mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 4), '#ffffff');
+  pole.position.y = 1.1;
+  b.add(body, band, pole, flag);
+  return b;
+}
+function inR(r, x, z) { return x >= r[0] && x <= r[1] && z >= r[2] && z <= r[3]; }
+
+// shallows hug the docks (the lagoon glows turquoise), deep blue out at sea
+function recolorOcean(M) {
+  const pos = oceanGeo.attributes.position, colors = oceanGeo.attributes.color;
+  const shallow = new THREE.Color('#47e3d2'), mid = new THREE.Color('#1fa3c9'), deep = new THREE.Color('#164f96'), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = oceanBase[i * 3], z = oceanBase[i * 3 + 2];
+    let d = 1e9;
+    for (const r of M.rects) d = Math.min(d, Math.hypot(x - Math.max(r[0], Math.min(r[1], x)), z - Math.max(r[2], Math.min(r[3], z))));
+    const k = Math.min(1, Math.max(0, (d - 1) / 16));
+    if (k < 0.5) c.copy(shallow).lerp(mid, k * 2); else c.copy(mid).lerp(deep, (k - 0.5) * 2);
+    colors.setXYZ(i, c.r, c.g, c.b);
+  }
+  colors.needsUpdate = true;
+}
+
+function buildMap(w) {
+  if (mapGroup) scene.remove(mapGroup);
+  const M = w.map;
+  mapGroup = new THREE.Group();
+  scene.add(mapGroup);
+  mapView = { id: M.id, world: w, movers: [], gates: [], buttons: [], portals: [], racks: [], buoys: [] };
+  const onDeck = (x, z) => M.rects.some((r) => inR(r, x, z)) || M.gates.some((g) => inR(g.r, x, z));
+  // decks and the posts holding them up (only along edges that face water)
+  for (const r of M.rects) {
+    plankStrip(mapGroup, r[0], r[1], r[2], r[3], r[1] - r[0] >= r[3] - r[2]);
+    const edge = (x, z, ox, oz) => { if (!onDeck(x + ox, z + oz)) { const p = mesh(postGeo, postCol); p.position.set(x, -1.3, z); mapGroup.add(p); } };
+    for (let x = r[0]; x <= r[1] + 0.01; x += Math.max(2, (r[1] - r[0]) / Math.ceil((r[1] - r[0]) / 4))) { edge(x, r[2], 0, -0.6); edge(x, r[3], 0, 0.6); }
+    for (let z = r[2]; z <= r[3] + 0.01; z += Math.max(2, (r[3] - r[2]) / Math.ceil((r[3] - r[2]) / 4))) { edge(r[0], z, -0.6, 0); edge(r[1], z, 0.6, 0); }
+  }
+  for (const s of M.signs) makeSign(s.text, s.x, s.z, s.rot, mapGroup);
+  for (const [x, z] of M.tipBuoys) { const b = makeBuoy(); b.position.set(x, WATER_Y, z); mapGroup.add(b); mapView.buoys.push(b); }
+  // barrels
+  for (const o of M.obstacles) {
+    const g = new THREE.Group();
+    const big = o.r > 0.8;
+    const b = mesh(new THREE.CylinderGeometry(o.r, o.r, 1.4, 10), big ? '#e8613c' : '#3fa7ff');
+    b.position.y = 0.7;
+    const r1 = mesh(new THREE.CylinderGeometry(o.r + 0.04, o.r + 0.04, 0.12, 10), '#3b3b4f');
+    r1.position.y = 0.3;
+    const r2 = r1.clone(); r2.position.y = 1.1;
+    g.add(b, r1, r2);
+    g.position.set(o.x, 0, o.z);
+    mapGroup.add(g);
+  }
+  // shipping containers (long) and crate stacks (small)
+  M.boxes.forEach((b, i) => {
+    const sx = b[1] - b[0], sz = b[3] - b[2], cx = (b[0] + b[1]) / 2, cz = (b[2] + b[3]) / 2;
+    const g = new THREE.Group();
+    if (sx * sz >= 6) {
+      const col = CONTAINER_COLORS[i % CONTAINER_COLORS.length];
+      const body = mesh(new THREE.BoxGeometry(sx, 2.5, sz), col);
+      body.position.y = 1.25;
+      g.add(body);
+      const along = sx > sz;
+      const n = Math.floor((along ? sx : sz) / 0.7);
+      for (let k = 1; k < n; k++) {
+        const rib = mesh(along ? new THREE.BoxGeometry(0.08, 2.3, sz + 0.08) : new THREE.BoxGeometry(sx + 0.08, 2.3, 0.08), '#2b2b3a', { transparent: true, opacity: 0.25 });
+        if (along) rib.position.set(-sx / 2 + k * (sx / n), 1.25, 0); else rib.position.set(0, 1.25, -sz / 2 + k * (sz / n));
+        rib.castShadow = false;
+        g.add(rib);
+      }
+      const roof = mesh(new THREE.BoxGeometry(sx + 0.1, 0.12, sz + 0.1), '#ffffff', { transparent: true, opacity: 0.35 });
+      roof.position.y = 2.52;
+      g.add(roof);
+    } else {
+      const low = mesh(new THREE.BoxGeometry(sx, 1.3, sz), woodC);
+      low.position.y = 0.65;
+      const top = mesh(new THREE.BoxGeometry(sx * 0.7, 1, sz * 0.7), woodA);
+      top.position.set(sx * 0.08, 1.8, -sz * 0.06);
+      top.rotation.y = 0.35;
+      g.add(low, top);
+    }
+    g.position.set(cx, 0, cz);
+    mapGroup.add(g);
+  });
+  // rod racks
+  M.racks.forEach((rk) => {
+    const g = new THREE.Group();
+    const base = mesh(new THREE.CylinderGeometry(1.1, 1.3, 0.5, 8), '#7a5230');
+    base.position.y = 0.25;
+    const top = mesh(new THREE.CylinderGeometry(0.15, 0.15, 2.4, 6), '#7a5230');
+    top.position.y = 1.4;
+    const roof = mesh(new THREE.ConeGeometry(1.4, 0.8, 8), '#ff5a5f');
+    roof.position.y = 2.9;
+    g.add(base, top, roof);
+    g.position.set(rk.x, 0, rk.z);
+    mapGroup.add(g);
+    makeSign('RODS', rk.x, rk.z, 0, mapGroup).position.y = 2.2;
+    mapView.racks.push({ g, rods: [] });
+  });
+  // drawbridges: two leaves that swing up from either side of the gap
+  M.gates.forEach((gt, i) => {
+    const r = gt.r, col = GATE_COLORS[i % GATE_COLORS.length];
+    const alongX = r[1] - r[0] <= r[3] - r[2]; // which way you walk across
+    const span = alongX ? r[1] - r[0] : r[3] - r[2], wide = alongX ? r[3] - r[2] : r[1] - r[0];
+    const cx = (r[0] + r[1]) / 2, cz = (r[2] + r[3]) / 2;
+    const leaves = [];
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      if (alongX) pivot.position.set(side < 0 ? r[0] : r[1], 0, cz); else pivot.position.set(cx, 0, side < 0 ? r[2] : r[3]);
+      const leaf = new THREE.Group();
+      plankStrip(leaf, alongX ? 0 : -wide / 2, alongX ? span / 2 : wide / 2, alongX ? -wide / 2 : 0, alongX ? wide / 2 : span / 2, alongX);
+      const stripe = mesh(alongX ? new THREE.BoxGeometry(0.3, 0.42, wide) : new THREE.BoxGeometry(wide, 0.42, 0.3), col);
+      if (alongX) stripe.position.set(span / 2 - 0.15, -0.2, 0); else stripe.position.set(0, -0.2, span / 2 - 0.15);
+      leaf.add(stripe);
+      if (side > 0) leaf.rotation.y = Math.PI;
+      pivot.add(leaf);
+      mapGroup.add(pivot);
+      leaves.push({ pivot, side });
+    }
+    // corner posts with a lamp: green when the bridge is down, red when it's up
+    const lamps = [];
+    const lampMat = new THREE.MeshBasicMaterial({ color: '#5ee07a' });
+    for (const [x, z] of [[r[0], r[2]], [r[0], r[3]], [r[1], r[2]], [r[1], r[3]]]) {
+      const post = mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.6, 6), col);
+      post.position.set(x, 0.8, z);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), lampMat);
+      lamp.position.set(x, 1.75, z);
+      mapGroup.add(post, lamp);
+      lamps.push(lamp);
+    }
+    mapView.gates.push({ leaves, alongX, ang: gt.def ? 0 : 1.2, lampMat });
+  });
+  // floor buttons, colour-coded to their bridge
+  M.buttons.forEach((b) => {
+    const col = GATE_COLORS[b.gate % GATE_COLORS.length];
+    const g = new THREE.Group();
+    const base = mesh(new THREE.CylinderGeometry(b.r, b.r + 0.1, 0.12, 20), '#3b3b4f');
+    base.position.y = 0.06;
+    const cap = mesh(new THREE.CylinderGeometry(b.r * 0.72, b.r * 0.78, 0.22, 20), col);
+    cap.position.y = 0.2;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(b.r + 0.15, b.r + 0.3, 28), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.03;
+    g.add(base, cap, ring);
+    g.position.set(b.x, 0, b.z);
+    mapGroup.add(g);
+    mapView.buttons.push({ cap, ring });
+  });
+  // portal pads: a swirling disc and a column of light, same colour at both ends
+  M.portals.forEach((q, i) => {
+    const col = PORTAL_COLORS[i % PORTAL_COLORS.length];
+    for (const e of [q.a, q.b]) {
+      const g = new THREE.Group();
+      const rim = mesh(new THREE.TorusGeometry(0.95, 0.13, 8, 28), col);
+      rim.rotation.x = -Math.PI / 2;
+      rim.position.y = 0.08;
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const x = c.getContext('2d');
+      x.fillStyle = col; x.fillRect(0, 0, 128, 128);
+      x.strokeStyle = '#ffffff'; x.lineWidth = 7; x.globalAlpha = 0.8;
+      for (let arm = 0; arm < 3; arm++) { x.beginPath(); for (let k = 0; k < 40; k++) { const a = arm * 2.09 + k * 0.16, rr = k * 1.5; x.lineTo(64 + Math.cos(a) * rr, 64 + Math.sin(a) * rr); } x.stroke(); }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.88, 28), new THREE.MeshBasicMaterial({ map: tex }));
+      disc.rotation.x = -Math.PI / 2;
+      disc.position.y = 0.06;
+      const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.4, 20, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
+      glow.position.y = 1.2;
+      g.add(rim, disc, glow);
+      g.position.set(e[0], 0, e[1]);
+      mapGroup.add(g);
+      mapView.portals.push({ disc, glow });
+    }
+  });
+  // rafts (lashed logs) and barges (a little deck on a hull with tyre bumpers)
+  w.movers.forEach((m) => {
+    const g = new THREE.Group();
+    if (m.kind === 'barge') {
+      const hull = mesh(new THREE.BoxGeometry(m.hw * 2 - 0.1, 0.7, m.hd * 2 - 0.1), '#e8613c');
+      hull.position.y = -0.7;
+      g.add(hull);
+      plankStrip(g, -m.hw, m.hw, -m.hd, m.hd, true);
+      for (const [x, z] of [[-m.hw, 0], [m.hw, 0], [0, -m.hd], [0, m.hd]]) {
+        const tyre = mesh(new THREE.TorusGeometry(0.28, 0.12, 6, 12), '#2b2b3a');
+        tyre.position.set(x * 1.02, -0.45, z * 1.02);
+        tyre.rotation.y = x ? Math.PI / 2 : 0;
+        g.add(tyre);
+      }
+    } else {
+      const n = Math.max(3, Math.round((m.hw * 2) / 0.55));
+      for (let k = 0; k < n; k++) {
+        const log = mesh(new THREE.CylinderGeometry(0.27, 0.27, m.hd * 2, 7), k % 2 ? '#9c6b3e' : '#b07a48');
+        log.rotation.x = Math.PI / 2;
+        log.position.set(-m.hw + (k + 0.5) * ((m.hw * 2) / n), -0.27, 0);
+        g.add(log);
+      }
+      for (const z of [-m.hd * 0.6, m.hd * 0.6]) {
+        const rope = mesh(new THREE.BoxGeometry(m.hw * 2 + 0.06, 0.1, 0.14), '#f5d78e');
+        rope.position.set(0, 0.0, z);
+        g.add(rope);
+      }
+      if (m.deep) {
+        const pole = mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 4), '#ffffff');
+        pole.position.set(m.hw - 0.3, 1.1, m.hd - 0.3);
+        const flag = mesh(new THREE.BoxGeometry(0.05, 0.5, 0.8), '#164f96');
+        flag.position.set(m.hw - 0.3, 1.95, m.hd - 0.7);
+        g.add(pole, flag);
+      }
+    }
+    mapGroup.add(g);
+    mapView.movers.push({ m, g });
+  });
+  recolorOcean(M);
+  updateMap(null, null, 1, 0, 1);
+}
+
+function updateMap(s, prev, alpha, t, dt) {
+  if (!mapView) return;
+  const tr = s ? (prev && prev.time <= s.time && s.time - prev.time < 1 ? prev.time + (s.time - prev.time) * alpha : s.time) : t;
+  mapView.movers.forEach((v, i) => {
+    const p = Sim.moverPos(v.m, tr);
+    v.g.position.set(p.x, Math.sin(t * 1.7 + i) * 0.04, p.z);
+    v.g.rotation.z = Math.sin(t * 1.3 + i) * 0.015;
+  });
+  mapView.gates.forEach((v, i) => {
+    const down = s ? !!s.gates[i] : !!mapView.world.map.gates[i].def;
+    v.ang += ((down ? 0 : 1.25) - v.ang) * Math.min(1, dt * 7);
+    for (const l of v.leaves) {
+      if (v.alongX) l.pivot.rotation.z = l.side < 0 ? v.ang : -v.ang;
+      else l.pivot.rotation.x = l.side < 0 ? -v.ang : v.ang;
+    }
+    v.lampMat.color.set(down ? '#5ee07a' : '#ff5a5f');
+  });
+  mapView.buttons.forEach((v, i) => {
+    const down = s && s.buttons ? !!s.buttons[i] : false;
+    v.cap.position.y += ((down ? 0.06 : 0.2) - v.cap.position.y) * Math.min(1, dt * 14);
+    v.ring.material.opacity = 0.45 + Math.sin(t * 4 + i) * 0.25;
+  });
+  for (const v of mapView.portals) { v.disc.rotation.z += dt * 2.5; v.glow.material.opacity = 0.14 + Math.sin(t * 3) * 0.06; }
+  for (const b of mapView.buoys) { b.position.y = WATER_Y + waveH(b.position.x, b.position.z, t) - 0.2; b.rotation.z = Math.sin(t * 1.5 + b.position.x) * 0.15; }
+  mapView.racks.forEach((rk, k) => {
+    const slots = s && s.rack ? s.rack[k] || [] : [true, true, true];
+    while (rk.rods.length < slots.length) { const r = makeRod(); rk.g.add(r); rk.rods.push(r); }
+    const n = slots.length;
+    rk.rods.forEach((r, i) => {
+      const a = (i / Math.max(1, n)) * Math.PI * 2;
+      r.position.set(Math.cos(a) * 0.85, 0.5, Math.sin(a) * 0.85);
+      r.rotation.set(Math.sin(a) * 0.2, 0, -Math.cos(a) * 0.2);
+      r.visible = i < n && !!slots[i];
+    });
+  });
+}
+
+// a ring of little buoys marks the edge of the map: get launched past it and you're out
+const buoys = [];
+for (let i = 0; i < 48; i++) {
+  const a = (i / 48) * Math.PI * 2;
+  const b = mesh(new THREE.SphereGeometry(0.35, 8, 6), i % 2 ? '#ffd23f' : '#ff5a5f');
+  b.position.set(Math.cos(a) * CFG.blastRadius, WATER_Y, Math.sin(a) * CFG.blastRadius);
+  b.userData.phase = i;
+  scene.add(b);
+  buoys.push(b);
 }
 
 // scenery: islands, palms, clouds
@@ -873,7 +1069,8 @@ let source = null; // { tick(dt), myId, prev, curr, alpha, events[], sendInput(i
 let playing = false, paused = false;
 
 function localSource(opts) {
-  const g = Sim.createGame(opts.round === 'rounds' ? { mode: 'rounds' } : { mode: 'timed', roundSeconds: +opts.round });
+  const g = Sim.createGame(Object.assign({ map: opts.map }, opts.round === 'rounds' ? { mode: 'rounds' } : { mode: 'timed', roundSeconds: +opts.round }));
+  buildMap(g.world);
   g.addPlayer('me', opts.name, false);
   const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel'];
   for (let i = 0; i < opts.bots; i++) g.addPlayer('bot' + i, names[i % names.length], true, opts.difficulty);
@@ -908,7 +1105,7 @@ function netSource(url, room, name, onLobby, onClose) {
   const hist = []; // inputs the server hasn't acknowledged yet, replayed for prediction
   const pending = { dash: false, fish: false, use: false, gadget: false };
   const src = {
-    myId: null, local: false, events: [], curr: null, prev: null, alpha: 1, ws, pred: null, off: { x: 0, z: 0 },
+    myId: null, local: false, events: [], curr: null, prev: null, alpha: 1, ws, pred: null, predT: 0, world: null, off: { x: 0, z: 0 },
     tick(dt) {
       const now = performance.now();
       src.alpha = Math.min(1.2, (now - lastSnapAt) / interval);
@@ -922,11 +1119,11 @@ function netSource(url, room, name, onLobby, onClose) {
         ws.send(JSON.stringify({ t: 'input', i: Object.assign({}, input, pending, { seq }) }));
         hist.push({ seq, mx: input.mx, mz: input.mz });
         if (hist.length > 90) hist.shift();
-        if (src.pred) Sim.walkStep(src.pred, input.mx, input.mz, STEP);
+        if (src.pred && src.world) { Sim.useWorld(src.world); Sim.walkStep(src.pred, input.mx, input.mz, STEP, src.predT); src.predT += STEP; }
         pending.dash = pending.fish = pending.use = pending.gadget = false;
       }
     },
-    start(round, bots) { ws.send(JSON.stringify({ t: 'start', round, bots })); },
+    start(round, bots, map) { ws.send(JSON.stringify({ t: 'start', round, bots, map })); },
     restart() { ws.send(JSON.stringify({ t: 'start' })); },
     stop() { try { ws.close(); } catch (e) {} },
   };
@@ -942,12 +1139,18 @@ function netSource(url, room, name, onLobby, onClose) {
       src.prev = src.curr;
       src.curr = msg.s;
       if (msg.e && msg.e.length) src.events.push(...msg.e);
+      // our own copy of the world, for predicting walks on rafts and around raised bridges
+      if (!src.world || src.world.map.id !== msg.s.map) src.world = Sim.makeWorld(msg.s.map);
+      if (msg.s.gates) { msg.s.gates.forEach((v, i) => { if (src.world.gates[i]) src.world.gates[i].pass = !!v; }); Sim.refreshWalls(src.world); }
+      Sim.useWorld(src.world);
       // client-side prediction for our own walking; anything else (dash, knockback, fishing) follows the server
       const me = msg.s.players.find((p) => p.id === src.myId);
       if (me && me.alive && !me.air && !me.swim && me.climbT <= 0 && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
         const np = { x: me.x, z: me.z, vx: me.vx, vz: me.vz, weapon: me.weapon, slowT: me.slowT };
         while (hist.length && hist[0].seq <= me.ack) hist.shift();
-        for (const h of hist) Sim.walkStep(np, h.mx, h.mz, STEP);
+        let pt = msg.s.time;
+        for (const h of hist) { Sim.walkStep(np, h.mx, h.mz, STEP, pt); pt += STEP; }
+        src.predT = pt;
         if (src.pred) {
           src.off.x += src.pred.x - np.x; src.off.z += src.pred.z - np.z;
           if (Math.hypot(src.off.x, src.off.z) > 3) src.off.x = src.off.z = 0;
@@ -1358,7 +1561,7 @@ function updateHud(s, me) {
     for (const p of sorted) {
       const d = document.createElement('div');
       d.className = 'score' + (me && p.id === me.id ? ' me' : '') + (rounds && p.out ? ' out' : '');
-      d.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)} <b>${rounds ? '🏆'.repeat(p.roundWins) || '0' : p.kos}</b>`;
+      d.innerHTML = `<span class="dot" style="background:${p.color}"></span><span class="nm">${escapeHtml(p.name)}</span> <b>${rounds ? '🏆'.repeat(p.roundWins) || '0' : p.kos}</b>`;
       $('topbar').appendChild(d);
     }
   }
@@ -1402,7 +1605,7 @@ function updateHud(s, me) {
   } else {
     $('wname').textContent = 'No fish';
     $('wname').style.color = '#fff';
-    $('wdesc').textContent = me.hasRod ? 'Cast off any edge. Half a second gets you a fish.' : 'Grab a rod from the rack in the middle.';
+    $('wdesc').textContent = me.hasRod ? 'Cast off any edge. Half a second gets you a fish.' : 'Grab a rod from a red-roofed rack.';
     wEl.style.borderColor = 'transparent';
     $('ammo').innerHTML = '';
   }
@@ -1430,7 +1633,7 @@ function updateHud(s, me) {
   let msg = '';
   if (me.alive && !me.fishing) {
     if (me.swim) msg = 'Swim back and climb onto the pier';
-    else if (!me.hasRod && !me.weapon) msg = 'Run to the rod rack in the middle';
+    else if (!me.hasRod && !me.weapon) msg = 'Run to a rod rack (red roof)';
     else if (me.hasRod && Sim.waterDirection(me.x, me.z, me.ax, me.az)) msg = Sim.isPierTip(me.x, me.z) ? 'R to cast · DEEP WATER: sinks faster' : 'R to cast';
     const groundFish = source.curr.items.find((it) => it.kind === 'fish' && Math.hypot(it.x - me.x, it.z - me.z) < 1.4);
     if (groundFish && me.weapon) msg = 'E to swap for ' + WEAPONS[groundFish.weapon].name;
@@ -1455,16 +1658,21 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&a
 
 const mm = $('minimap').getContext('2d');
 function drawMinimap(s, me) {
-  const W = 300, sc = W / 64;
+  const W = 300, sc = W / 66;
   mm.clearRect(0, 0, W, W);
   mm.save();
   mm.translate(W / 2, W / 2);
+  const M = mapView ? mapView.world.map : MAPS[CFG.map];
+  const box = (r) => mm.fillRect(r[0] * sc, r[2] * sc, (r[1] - r[0]) * sc, (r[3] - r[2]) * sc);
   mm.fillStyle = '#d9a066';
-  mm.fillRect(-H * sc, -H * sc, 2 * H * sc, 2 * H * sc);
-  mm.fillRect(-PH * sc, -PL * sc, 2 * PH * sc, 2 * PL * sc);
-  mm.fillRect(-PL * sc, -PH * sc, 2 * PL * sc, 2 * PH * sc);
+  for (const r of M.rects) box(r);
+  M.gates.forEach((gt, i) => { mm.fillStyle = s.gates && s.gates[i] ? '#d9a066' : 'rgba(255,90,95,0.55)'; box(gt.r); });
   mm.fillStyle = '#164f96';
-  for (const [x, z] of tips) { mm.beginPath(); mm.arc(x * sc, z * sc, 7, 0, 7); mm.fill(); }
+  for (const r of M.deep) box(r);
+  mm.fillStyle = '#7a5230';
+  for (const r of M.boxes) box(r);
+  for (const m of M.movers) { const q = Sim.moverPos(m, s.time); mm.fillStyle = m.deep ? '#164f96' : '#b07a48'; mm.fillRect((q.x - m.hw) * sc, (q.z - m.hd) * sc, m.hw * 2 * sc, m.hd * 2 * sc); }
+  M.portals.forEach((q, i) => { mm.fillStyle = PORTAL_COLORS[i % PORTAL_COLORS.length]; for (const e of [q.a, q.b]) { mm.beginPath(); mm.arc(e[0] * sc, e[1] * sc, 6, 0, 7); mm.fill(); } });
   for (const it of s.items) {
     mm.fillStyle = it.kind === 'fish' ? RARITY_COLORS[WEAPONS[it.weapon].rarity] : DROP_COLORS[it.kind] || '#222';
     mm.fillRect(it.x * sc - 5, it.z * sc - 5, 10, 10);
@@ -1582,7 +1790,7 @@ function handleEvents(s, me) {
       case 'pelican': SFX.pelican(); feed(`🦩 Pelican inbound with <b style="color:${DROP_COLORS[e.kind]}">${DROPS[e.kind].name}</b>`); break;
       case 'land': burst(e.x, 0.2, e.z, e.player ? '#ffffff' : '#f5d78e', 6, 3, 0.12, 0.4); break;
       case 'noedge': if (e.id === myId) toast('Get to the edge of the pier to cast', '#fff', 1.2); break;
-      case 'norod': if (e.id === myId) toast('No rod! Grab one in the middle.', '#fff', 1.2); break;
+      case 'norod': if (e.id === myId) toast('No rod! Grab one from a red-roofed rack.', '#fff', 1.2); break;
       case 'dash': {
         const p = s.players.find((q) => q.id === e.id);
         if (p) burst(p.x, e.water ? WATER_Y + 0.3 : 0.3, p.z, e.water ? '#bdf4ff' : '#ffffff', e.water ? 12 : 6, e.water ? 5 : 3, 0.14, 0.35, 2);
@@ -1615,6 +1823,20 @@ function handleEvents(s, me) {
         else toast(w ? `<span style="color:${w.color}">${escapeHtml(w.name)}</span> takes the round` : 'Nobody survived!', '#fff', 2.5);
         break;
       }
+      case 'gate': {
+        const near = me && Math.hypot(me.x - e.x, me.z - e.z) < 18;
+        if (near || e.by === myId) { noise(0.3, 0.12, 500); tone(e.pass ? 180 : 140, 0.35, 'sawtooth', 0.04, e.pass ? 0.6 : 1.6); }
+        if (e.by === myId) toast(e.pass ? '<small>bridge down</small>' : '<small>bridge up! nobody follows you over</small>', e.pass ? '#5ee07a' : '#ff5a5f', 1.1);
+        break;
+      }
+      case 'button': if (e.id === myId) tone(1000, 0.05, 'square', 0.05, 0.8); break;
+      case 'portal': {
+        burst(e.x, 0.6, e.z, '#c86bff', 12, 4, 0.14, 0.4, 0);
+        burst(e.tx, 0.6, e.tz, '#2ee6d6', 16, 5, 0.14, 0.5, 0);
+        if (e.id === myId) { tone(500, 0.25, 'sine', 0.07, 3); noise(0.2, 0.08, 4000); }
+        break;
+      }
+      case 'frenzy': toast('FEEDING FRENZY<small>lines sink faster and faster: deep fish are biting</small>', '#ff9f43', 2.2); [330, 392, 494, 659].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0.05), i * 70)); break;
       case 'overtime': toast('OVERTIME<small>next KO wins</small>', '#ffd23f', 2.5); break;
       case 'start': if (e.mode !== 'rounds') toast('GO FISH!', '#ffd23f', 1.5); break;
       case 'spawn': if (e.id === myId) { const p = s.players.find((q) => q.id === e.id); if (p) cam.yaw = Math.atan2(p.ax, p.az); cam.pitch = 0.32; } break;
@@ -1635,8 +1857,19 @@ function updateCamera(me, dt, t) {
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
   const dir = new THREE.Vector3(f.x * cp, -sp, f.z * cp);
   const shoulder = 0.7;
-  camera.position.copy(cam.target).addScaledVector(dir, -cam.dist);
-  camera.position.x -= r.x * shoulder; camera.position.z -= r.z * shoulder;
+  // pull the camera in rather than letting it end up inside a container or crate stack
+  let allow = cam.dist;
+  if (mapView && mapView.world.map.boxes.length) {
+    for (let k = 1; k <= 16; k++) {
+      const d = (cam.dist * k) / 16;
+      const x = cam.target.x - dir.x * d - r.x * shoulder * (k / 16), y = cam.target.y - dir.y * d, z = cam.target.z - dir.z * d - r.z * shoulder * (k / 16);
+      if (y < 2.9 && mapView.world.map.boxes.some((b) => x > b[0] - 0.35 && x < b[1] + 0.35 && z > b[2] - 0.35 && z < b[3] + 0.35)) { allow = Math.max(1.2, (cam.dist * (k - 1)) / 16); break; }
+    }
+  }
+  cam.cur = cam.cur == null ? allow : allow < cam.cur ? allow : cam.cur + (allow - cam.cur) * Math.min(1, dt * 4);
+  const sh = shoulder * Math.min(1, cam.cur / cam.dist);
+  camera.position.copy(cam.target).addScaledVector(dir, -cam.cur);
+  camera.position.x -= r.x * sh; camera.position.z -= r.z * sh;
   camera.position.y = Math.max(camera.position.y, WATER_Y + 0.6);
   if (shake > 0) {
     camera.position.x += (Math.random() - 0.5) * shake;
@@ -1742,8 +1975,8 @@ function frame(now) {
     const s = source.curr;
     if (s) {
       const me = s.players.find((p) => p.id === source.myId);
-      ensureRackRods(s.rack.length);
-      rackRods.forEach((r, i) => (r.visible = !!s.rack[i]));
+      if (s.map && (!mapView || mapView.id !== s.map)) buildMap(source.local ? source.game.world : source.world);
+      updateMap(s, source.prev, source.alpha, t, dt);
       syncPlayers(s, source.prev, source.alpha, t, dt);
       syncProjectiles(s, source.prev, source.alpha);
       syncItems(s, t);
@@ -1764,6 +1997,7 @@ function frame(now) {
     }
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').style.opacity = 0; }
   } else {
+    updateMap(null, null, 1, t, dt);
     menuOrbit += dt * 0.08;
     camera.position.set(Math.cos(menuOrbit) * 46, 24, Math.sin(menuOrbit) * 46);
     camera.lookAt(0, 0, 0);
@@ -1799,7 +2033,10 @@ function renderGuide() {
 }
 $('btnGuide').onclick = () => { renderGuide(); $('menu').classList.add('hidden'); $('guide').classList.remove('hidden'); };
 $('btnGuideBack').onclick = () => { $('guide').classList.add('hidden'); $('menu').classList.remove('hidden'); };
-const getBots = seg('segBots'), getDiff = seg('segDiff'), getRound = seg('segRound'), getRoundNet = seg('segRoundNet'), getBotsNet = seg('segBotsNet');
+const getBots = seg('segBots'), getDiff = seg('segDiff'), getRound = seg('segRound'), getRoundNet = seg('segRoundNet'), getBotsNet = seg('segBotsNet'), getMap = seg('segMap'), getMapNet = seg('segMapNet');
+// the menu backdrop previews whichever map is picked
+$('segMap').addEventListener('click', () => { if (!playing) buildMap(Sim.makeWorld(getMap())); });
+buildMap(Sim.makeWorld(getMap()));
 try { const n = localStorage.getItem('slapfish.name'); if (n) $('name').value = n; } catch (e) {}
 function saveName() { try { localStorage.setItem('slapfish.name', $('name').value); } catch (e) {} }
 
@@ -1831,7 +2068,7 @@ $('btnSolo').onclick = () => {
   ac();
   saveName();
   clearViews();
-  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: getRound() }));
+  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: getRound(), map: getMap() }));
 };
 $('btnOnline').onclick = () => {
   saveName();
@@ -1869,7 +2106,7 @@ $('btnConnect').onclick = () => {
     if (playing && source === netSrc) { playing = false; hud.classList.add('hidden'); $('online').classList.remove('hidden'); }
   });
 };
-$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet()); };
+$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet(), getMapNet()); };
 
 function togglePause() {
   if (!playing) return;
@@ -1888,6 +2125,7 @@ function quitToMenu() {
   document.getElementById('touch').classList.add('hidden');
   ['pause', 'results', 'online'].forEach((id) => $(id).classList.add('hidden'));
   $('menu').classList.remove('hidden');
+  buildMap(Sim.makeWorld(getMap()));
 }
 function showResults(s) {
   $('results').classList.add('shown');

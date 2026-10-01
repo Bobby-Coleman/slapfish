@@ -70,6 +70,7 @@ wss.on('connection', (ws) => {
       room.game.setInput(id, msg.i || {});
     } else if (msg.t === 'start' && id === room.host) {
       const g = room.game;
+      if (typeof msg.map === 'string') g.setMap(msg.map);
       if (msg.round === 'rounds') g.state.mode = 'rounds';
       else if (msg.round) { g.state.mode = 'timed'; g.state.roundSeconds = Math.max(60, Math.min(1200, +msg.round)); }
       // replace bots with the requested count
