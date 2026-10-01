@@ -31,7 +31,7 @@ Sources: [Brawlhalla item spawning](https://brawlhalla.wiki.gg/wiki/Item_Spawnin
 1. Spawn on the central platform (the spawn point farthest from enemies) with 1.5 s of invulnerability.
 2. Run to the rod rack in the middle. Rods respawn on the rack 6 s after being taken.
 3. Walk to any edge and cast (R or right-click). You're rooted while fishing.
-4. Reel in (R again) whenever you like after the first bite at 2.5 s. Reeling takes 0.6 s and you're still vulnerable.
+4. Reel in (R again) whenever you like after 2.5 s. Reel while the bobber is pulled under for a perfect catch (+25% ammo). Reeling takes 0.6 s and you're still vulnerable.
 5. Fight with your fish until its uses run out, then go back to step 3. You keep your rod until you die.
 6. When you're KO'd, your fish and rod drop on the pier for anyone to grab (unless you fell in the sea, then they sink).
 
@@ -48,6 +48,7 @@ Sources: [Brawlhalla item spawning](https://brawlhalla.wiki.gg/wiki/Item_Spawnin
 | Catch-up bonus | Depth gain x1.25 if you're 3+ KOs behind the leader | Gentle rubber-banding. It helps you fish better; it doesn't hand out wins. |
 | Golden Lure (drop) | Depth gain x2 for the next 2 casts | Shortens your exposure. |
 | Bubble Bobber (drop) | Next fishing trip blocks 2 hits completely | The "armor while fishing" item. |
+| Bites | After 2.5 s the bobber gets pulled under every 2 to 4.5 s for 0.55 s | Reeling during a bite is a **perfect catch**: +25% ammo. A small skill reward that never changes rarity odds. |
 
 ### Depth tiers and rarity odds
 

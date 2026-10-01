@@ -39,6 +39,8 @@
     pelicanJitter: 10,
     groundFishLife: 20,
     fallTime: 0.8,
+    biteWindow: 0.55, // reel while the bobber is pulled under for a perfect catch
+    perfectBonus: 1.25, // perfect catch ammo multiplier
   };
 
   const MAP = {
@@ -514,12 +516,17 @@
               // the old fish flops onto the pier so it isn't simply lost
               S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x - f.dx * 1.2, z: p.z - f.dz * 1.2, life: C.groundFishLife });
             }
-            giveWeapon(p, r.wid);
+            giveWeapon(p, r.wid, f.perfect ? Math.round(WEAPONS[r.wid].uses * C.usesScale * C.perfectBonus) : null);
             p.caught++;
             p.fishing = null;
-            emit('catch', { id: p.id, w: r.wid, rarity: WEAPONS[r.wid].rarity, tier: r.tier, depth: f.depth });
+            emit('catch', { id: p.id, w: r.wid, rarity: WEAPONS[r.wid].rarity, tier: r.tier, depth: f.depth, perfect: f.perfect });
           }
         } else {
+          f.biteT = Math.max(0, f.biteT - dt);
+          if (f.depth >= C.fishMinBite) {
+            f.biteIn -= dt;
+            if (f.biteIn <= 0) { f.biteT = C.biteWindow; f.biteIn = rand(2, 4.5); emit('bite', { id: p.id, x: f.bx, z: f.bz }); }
+          }
           const prevTier = tierFor(f.depth).id;
           f.depth += dt * f.mult;
           const nt = tierFor(f.depth).id;
@@ -527,7 +534,7 @@
           if (inp.fish) {
             inp.fish = false;
             if (f.depth < C.fishMinBite) { p.fishing = null; emit('cancel', { id: p.id }); }
-            else { f.reelT = C.reelTime; emit('reel', { id: p.id }); }
+            else { f.perfect = f.biteT > 0; f.reelT = C.reelTime; emit('reel', { id: p.id, perfect: f.perfect }); }
           } else if (f.depth >= C.autoReel) {
             f.reelT = C.reelTime; emit('reel', { id: p.id });
           }
@@ -545,7 +552,7 @@
             let mult = isPierTip(p.x, p.z) ? C.pierTipMult : 1;
             if (p.lure > 0) { mult *= 2; p.lure--; }
             if (p.kos <= leaderKos() - C.catchUpGap) mult *= C.catchUpMult;
-            p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z) };
+            p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z), biteIn: C.fishMinBite + rand(0.2, 1.6), biteT: 0, perfect: false };
             p.ax = dir.x; p.az = dir.z;
             emit('cast', { id: p.id, x: p.fishing.bx, z: p.fishing.bz, mult });
             integrate(p, dt, 0, 0);
@@ -732,7 +739,7 @@
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
           hp: Math.round(p.hp), armor: Math.round(p.armor), alive: p.alive, falling: p.falling > 0, respawnT: r2(p.respawnT), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
-          fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip } : null,
+          fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
           bubble: p.bubble, lure: p.lure, kos: p.kos, deaths: p.deaths, caught: p.caught,
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
@@ -827,7 +834,7 @@
       if (threat) {
         if (f.depth >= g.cfg.fishMinBite) out.fish = true;
         else if (ed < 4) out.dash = true; // bail out
-      } else if (f.depth >= b.target) out.fish = true;
+      } else if (f.depth >= b.target && (f.biteT > 0 || f.depth >= b.target + 4 || p.difficulty === 'easy')) out.fish = true;
       return out;
     }
 

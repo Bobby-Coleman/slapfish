@@ -155,7 +155,9 @@ function makeSign(text, x, z, rotY) {
   g.position.set(x, 0, z);
   g.rotation.y = rotY;
   scene.add(g);
+  return g;
 }
+makeSign('RODS', 0, 0, 0).position.y = 2.2;
 makeSign('DEEP', 2.4, PL - 0.5, 0);
 makeSign('DEEP', -2.4, -PL + 0.5, Math.PI);
 makeSign('DEEP', PL - 0.5, -2.4, Math.PI / 2);
@@ -531,12 +533,17 @@ function stepEffects(dt) {
     } else if (e.kind === 'boom') {
       e.m.scale.setScalar(e.r * (1.1 - k * 0.8));
       e.m.material.opacity = k * 0.8;
+    } else if (e.kind === 'arc') {
+      const k2 = 1 - k;
+      const to = e.target();
+      e.m.position.set(e.from.x + (to.x - e.from.x) * k2, e.from.y + (to.y - e.from.y) * k2 + Math.sin(k2 * Math.PI) * 3, e.from.z + (to.z - e.from.z) * k2);
+      e.m.rotation.x += 0.4;
     } else if (e.kind === 'line') {
       e.m.material.opacity = k;
     }
     if (e.life <= 0) {
       scene.remove(e.m);
-      if (e.kind !== 'p') { e.m.geometry.dispose(); e.m.material.dispose(); }
+      if (e.kind !== 'p' && e.kind !== 'arc') { e.m.geometry.dispose(); e.m.material.dispose(); }
       effects.splice(i, 1);
     }
   }
@@ -873,7 +880,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
       const f = p.fishing;
       const tier = Sim.tierFor(f.depth);
       const tierIdx = TIERS.indexOf(tier);
-      const bob = waveH(f.bx, f.bz, t) + WATER_Y + (f.depth < CFG.fishMinBite ? 0.05 : -0.08 - Math.abs(Math.sin(t * (4 + tierIdx * 2))) * 0.12 * (1 + tierIdx));
+      const bob = waveH(f.bx, f.bz, t) + WATER_Y + (f.biteT > 0 ? -0.45 : f.depth < CFG.fishMinBite ? 0.05 : -0.05 - Math.abs(Math.sin(t * 3)) * 0.06);
       const reel = f.reelT > 0 ? 1 - f.reelT / CFG.reelTime : 0;
       const tipW = new THREE.Vector3();
       u.rod.userData.tip.getWorldPosition(tipW);
@@ -1144,7 +1151,8 @@ function updateHud(s, me) {
     const total = tier.w.reduce((a, b) => a + b, 0);
     $('odds').innerHTML = tier.w.map((w, i) => (w ? `<i style="width:${(w / total) * 100}%;background:${RARITY_COLORS[RARITIES[i]]}"></i>` : '')).join('');
     $('oddsTxt').textContent = d < CFG.fishMinBite ? 'Waiting for a bite…' : tier.w.map((w, i) => (w ? `${RARITIES[i][0].toUpperCase()}${Math.round((w / total) * 100)}%` : '')).filter(Boolean).join(' ');
-    $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'R cancels · Space bails' : 'R to reel in!';
+    $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'R cancels · Space bails' : me.fishing.biteT > 0 ? 'BITE! Reel now!' : 'R to reel in';
+    $('reelhint').style.color = me.fishing.biteT > 0 ? '#ffd23f' : '';
     fp.querySelector('h3').textContent = me.fishing.mult > 1.01 ? `Line in ×${me.fishing.mult.toFixed(2)}` : 'Line in the water';
   } else fp.classList.add('hidden');
 }
@@ -1225,12 +1233,21 @@ function handleEvents(s, me) {
         const w = WEAPONS[e.w];
         const p = s.players.find((q) => q.id === e.id);
         if (p) burst(p.x, 1.5, p.z, RARITY_COLORS[e.rarity], 12, 5, 0.15, 0.7);
+        const pv = views.players.get(e.id);
+        if (pv) {
+          const fm = makeFish(e.w);
+          const from = pv.bobber.position.clone();
+          scene.add(fm);
+          burst(from.x, WATER_Y + 0.2, from.z, '#ffffff', 10, 4, 0.14, 0.5);
+          effects.push({ m: fm, life: 0.45, max: 0.45, kind: 'arc', from, target: () => new THREE.Vector3(pv.x, 1.2, pv.z) });
+        }
         if (e.id === myId) {
-          toast(`${w.name}<small style="color:${RARITY_COLORS[e.rarity]}">${e.rarity.toUpperCase()} · ${w.desc}</small>`, RARITY_COLORS[e.rarity], 2.4);
+          toast(`${e.perfect ? 'PERFECT! ' : ''}${w.name}<small style="color:${RARITY_COLORS[e.rarity]}">${e.rarity.toUpperCase()} · ${w.desc}${e.perfect ? ' · +25% ammo' : ''}</small>`, RARITY_COLORS[e.rarity], 2.4);
           SFX.catch(e.rarity);
         } else if (e.rarity === 'epic' || e.rarity === 'legendary') feed(`${nameOf(s, e.id)} reeled in a <b style="color:${RARITY_COLORS[e.rarity]}">${w.name}</b>!`);
         break;
       }
+      case 'bite': burst(e.x, WATER_Y + 0.1, e.z, '#ffffff', 6, 2.5, 0.1, 0.35); if (e.id === myId) tone(880, 0.09, 'triangle', 0.08, 1.4); break;
       case 'cast': if (e.id === myId) SFX.cast(); burst(e.x, WATER_Y + 0.2, e.z, '#ffffff', 5, 3, 0.1, 0.4); break;
       case 'snap': if (e.id === myId) { toast('LINE SNAPPED', '#ff9f43', 1.2); SFX.snap(); } break;
       case 'bubble': { const p = s.players.find((q) => q.id === e.id); if (p) burst(p.x, 1, p.z, '#9fe8ff', 10, 4, 0.15, 0.5); if (e.id === myId) SFX.snap(); break; }
