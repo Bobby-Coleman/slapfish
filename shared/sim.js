@@ -17,6 +17,14 @@
     winRounds: 5, // rounds mode: first to this many round wins takes the match
     roundCap: 100, // rounds mode: a round that runs this long goes to whoever has the most health
     roundBreak: 3, // seconds between rounds
+    // team modes ('team' = Team KOs, 'koth' = King of the Hill, 'ctf' = Capture the Flag): 2 or 3 teams, 1.5 s respawns at your base
+    teamSeconds: 300,
+    teamKOs: 20, // Team KOs: first team to this many
+    kothWin: 50, // King of the Hill: seconds of holding the hill alone
+    kothMove: 30, // the hill moves on after this long
+    ctfCaps: 3, // Capture the Flag: captures to win
+    flagReturn: 15, // a dropped flag goes home after this long
+    carrySpeed: 0.88, // carrying a flag slows you a little
     frenzyAt: 40, // rounds mode: after this long the deep fish start biting faster and faster
     frenzyRamp: 20, // seconds per extra 1x of sink speed once the frenzy starts
     tickRate: 30,
@@ -138,6 +146,9 @@
     tackle: { name: 'Tackle Box', w: 14, desc: 'A random gadget fish with an extra charge' },
   };
 
+  const TEAM_MODES = { team: 'Team KOs', koth: 'King of the Hill', ctf: 'Capture the Flag' };
+  const TEAM_COLORS = ['#ff5a5f', '#3fa7ff', '#ffd23f'];
+  const TEAM_NAMES = ['Coral', 'Blue', 'Gold'];
   const COLORS = ['#ff5a5f', '#3fa7ff', '#ffd23f', '#5ee07a', '#c86bff', '#ff9f43', '#2ee6d6', '#ff6bcb'];
 
   // ---------------------------------------------------------------- helpers
@@ -186,6 +197,9 @@
       M.tipBuoys.push(P(-6, 29));
     }
     for (const phase of [0, 0.5]) M.movers.push({ kind: 'raft', hw: 1.3, hd: 1.3, path: { type: 'circle', cx: 0, cz: 0, r: 18, period: 36, phase } });
+    // team bases at the pier tips (N, E, S, W); hills: the middle, a tip, a raft, the other tip
+    M.bases = [{ x: 0, z: 24 }, { x: 24, z: 0 }, { x: 0, z: -24 }, { x: -24, z: 0 }];
+    M.hills = [{ x: 0, z: 0, r: 4 }, { x: 0, z: 23, r: 3 }, { m: 0, r: 2.2 }, { x: 0, z: -23, r: 3 }, { x: 23, z: 0, r: 3 }, { m: 1, r: 2.2 }, { x: -23, z: 0, r: 3 }];
     return M;
   }
 
@@ -229,6 +243,9 @@
     for (const phase of [0, 0.5]) M.movers.push({ kind: 'raft', hw: 1.3, hd: 1.3, path: { type: 'circle', cx: 0, cz: 0, r: 10.5, period: 28, phase, dir: -1 } });
     const lap = [[26, -18], [26, 18], [18, 26], [-18, 26], [-26, 18], [-26, -18], [-18, -26], [18, -26]];
     for (const phase of [0, 0.5]) M.movers.push({ kind: 'raft', deep: true, hw: 1.5, hd: 1.5, path: { type: 'loop', pts: lap, period: 64, phase } });
+    // team bases out on the jetty ends (NW, NE, SE, SW): dead ends over deep water, easy to fish and defend
+    M.bases = [{ x: -18.5, z: 27.6 }, { x: 27.6, z: 18.5 }, { x: 18.5, z: -27.6 }, { x: -27.6, z: -18.5 }];
+    M.hills = [{ x: 0, z: 0, r: 3.8 }, { x: 19, z: 19, r: 3.2 }, { m: 4, r: 2.3 }, { x: -19, z: -19, r: 3.2 }, { x: 0, z: 19, r: 3 }, { m: 5, r: 2.3 }, { x: 0, z: -19, r: 3 }];
     return M;
   }
 
@@ -410,6 +427,7 @@
     const heavy = p.weapon && WEAPONS[p.weapon.id] && WEAPONS[p.weapon.id].heavy;
     let speed = heavy ? C.heavySpeed : C.playerSpeed;
     if (p.slowT > 0) speed *= 0.6;
+    if (p.carry != null) speed *= C.carrySpeed;
     const ml = len(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
     const k = 1 - Math.exp(-14 * dt);
@@ -590,6 +608,11 @@
         phase: 'lobby', // lobby | play | over
         mode: (opts.cfg && opts.cfg.mode) || opts.mode || CFG.mode,
         map: MAPS[opts.map || (opts.cfg && opts.cfg.map)] ? opts.map || opts.cfg.map : CFG.map,
+        teams: 0, // team modes: how many teams (2 or 3)
+        teamScore: [],
+        flags: [], // capture the flag: one per team
+        hill: null, // king of the hill
+        winTeam: null,
         round: 0, // rounds mode: current round number
         roundT: 0, // time into the current round
         breakT: 0, // rounds mode: countdown to the next round (0 = a round is running)
@@ -615,6 +638,17 @@
     S.roundLeft = S.roundSeconds;
     g.world = makeWorld(S.map);
     useWorld(g.world);
+    S.teams = TEAM_MODES[S.mode] ? clamp(+opts.teams || 2, 2, 3) : 0;
+    // pick mode, team count, match length and map in one go (the server's lobby uses this)
+    g.configure = function (o) {
+      if (o.map) g.setMap(o.map);
+      if (o.mode && (o.mode === 'rounds' || o.mode === 'timed' || TEAM_MODES[o.mode])) S.mode = o.mode;
+      S.teams = TEAM_MODES[S.mode] ? clamp(+o.teams || S.teams || 2, 2, 3) : 0;
+      if (o.roundSeconds) S.roundSeconds = clamp(+o.roundSeconds, 60, 1200);
+    };
+    function ally(a, b) { return !!(S.teams && a && b && a !== b && a.team === b.team); }
+    function teamBases() { const B = g.world.map.bases; return (S.teams === 3 ? [0, 1, 2] : [0, 2]).map((i) => B[i]); }
+    function teamSize(t) { return Object.values(S.players).filter((p) => p.team === t).length; }
     g.setMap = function (id) {
       if (!MAPS[id] || id === S.map) return;
       S.map = id;
@@ -647,11 +681,17 @@
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
         hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, dotBy: null, lastW: null, lastHitW: null,
-        fishing: null, bubble: 0, lure: 0, gadget: null, portalLock: null,
+        fishing: null, bubble: 0, lure: 0, gadget: null, portalLock: null, team: -1, carry: null, baseColor: color,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
         brain: isBot ? { spot: null, target: 0, stuckT: 0, lastX: 0, lastZ: 0, think: 0, strafe: 1, aimErr: 0 } : null,
       };
       S.players[id] = p;
+      if (S.teams && S.phase !== 'lobby') {
+        // joining a team game in progress: fill the smallest team
+        let best = 0;
+        for (let t = 1; t < S.teams; t++) if (teamSize(t) < teamSize(best)) best = t;
+        p.team = best; p.color = TEAM_COLORS[best];
+      }
       g.inputs[id] = { mx: 0, mz: 0, ax: 1, az: 0, fire: false, dash: false, fish: false, use: false, gadget: false };
       syncRack();
       return p;
@@ -688,14 +728,25 @@
       S.items = [];
       S.pelicans = [];
       S.winner = null;
+      S.winTeam = null;
+      S.overtime = false;
       S.nextPelican = C.pelicanFirst;
+      if (S.teams) S.roundSeconds = C.teamSeconds;
+      S.roundLeft = S.roundSeconds;
+      S.teamScore = new Array(S.teams).fill(0);
       syncRack();
       for (const r of S.rack) { r.ready = true; r.t = 0; }
       let i = 0;
       for (const p of Object.values(S.players)) {
-        Object.assign(p, { kos: 0, deaths: 0, caught: 0, roundWins: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
+        Object.assign(p, { kos: 0, deaths: 0, caught: 0, roundWins: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null, carry: null });
+        // teams fill in join order: you, then bots alternate
+        p.team = S.teams ? i % S.teams : -1;
+        p.color = S.teams ? TEAM_COLORS[p.team] : p.baseColor;
+        if (p.brain) p.brain.role = Math.floor(i / Math.max(1, S.teams)) % 2;
         i++;
       }
+      S.flags = S.mode === 'ctf' ? teamBases().map((b, t) => ({ team: t, x: b.x, z: b.z, hx: b.x, hz: b.z, state: 'home', carrier: null, t: 0 })) : [];
+      S.hill = S.mode === 'koth' ? { i: 0, t: C.kothMove, owner: -1, contested: false } : null;
       S.round = 0;
       S.roundWinner = null;
       emit('start', { mode: S.mode });
@@ -735,11 +786,16 @@
 
     function spawnPlayer(p) {
       const others = Object.values(S.players).filter((o) => o !== p && o.alive);
-      const spawns = g.world.map.spawns;
+      let spawns = g.world.map.spawns;
+      if (S.teams && p.team >= 0) {
+        // team games: one of the three spawn points nearest your base
+        const b = teamBases()[p.team];
+        spawns = spawns.slice().sort((u, v) => len(u[0] - b.x, u[1] - b.z) - len(v[0] - b.x, v[1] - b.z)).slice(0, 3);
+      }
       let best = spawns[0], bestD = -1;
       for (const s of spawns) {
         let d = 999;
-        for (const o of others) d = Math.min(d, len(o.x - s[0], o.z - s[1]));
+        for (const o of others) if (!ally(o, p)) d = Math.min(d, len(o.x - s[0], o.z - s[1]));
         d += Math.random() * 3;
         if (d > bestD) { bestD = d; best = s; }
       }
@@ -765,6 +821,8 @@
       if (!p.alive) return;
       const credit = p.lastHitBy && S.time - p.lastHitT <= C.creditWindow && S.players[p.lastHitBy] ? S.players[p.lastHitBy] : null;
       if (credit && credit !== p) credit.kos++;
+      if (S.mode === 'team' && credit && credit !== p && !ally(credit, p)) S.teamScore[credit.team]++;
+      if (p.carry != null) dropFlag(p, cause);
       p.deaths++;
       p.alive = false;
       p.hp = 0;
@@ -782,6 +840,7 @@
     function hit(t, attacker, dmg, dirx, dirz, kb, extra) {
       if (!t.alive || t.invulnT > 0) return false;
       if (attacker && attacker.id === t.id) return false;
+      if (ally(attacker, t)) return false; // no friendly fire
       if (t.dashIF > 0) { emit('dodge', { id: t.id, x: t.x, z: t.z }); return false; }
       if (t.fishing && t.bubble > 0) {
         t.bubble--;
@@ -888,15 +947,15 @@
         p.vx = ax * w.speed; p.vz = az * w.speed;
         p.phaseHit = [];
       } else if (w.kind === 'blind') {
-        for (const t of Object.values(S.players)) if (t !== p && t.alive) { t.blindT = w.blind; t.lastHitBy = p.id; t.lastHitT = S.time; t.lastHitW = wid; }
+        for (const t of Object.values(S.players)) if (t !== p && t.alive && !ally(p, t)) { t.blindT = w.blind; t.lastHitBy = p.id; t.lastHitT = S.time; t.lastHitW = wid; }
         emit('blind', { id: p.id, x: p.x, z: p.z, t: w.blind });
       } else if (w.kind === 'storm') {
-        for (const t of Object.values(S.players)) if (t !== p && t.alive) { t.dotT = w.time; t.dotBy = p.id; t.slowT = Math.max(t.slowT, w.time); t.splatT = Math.max(t.splatT, w.time); }
+        for (const t of Object.values(S.players)) if (t !== p && t.alive && !ally(p, t)) { t.dotT = w.time; t.dotBy = p.id; t.slowT = Math.max(t.slowT, w.time); t.splatT = Math.max(t.splatT, w.time); }
         emit('storm', { id: p.id, t: w.time });
       } else if (w.kind === 'zap') {
         let first = null, bestD = 999;
         for (const t of Object.values(S.players)) {
-          if (t === p || !t.alive) continue;
+          if (t === p || !t.alive || ally(p, t)) continue;
           const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz);
           if (d < w.range && (dx * ax + dz * az) / d > w.cone && d < bestD) { bestD = d; first = t; }
         }
@@ -906,7 +965,7 @@
           if (w.chain) {
           let second = null; bestD = 999;
           for (const t of Object.values(S.players)) {
-            if (t === p || t === first || !t.alive) continue;
+            if (t === p || t === first || !t.alive || ally(p, t)) continue;
             const d = len(t.x - first.x, t.z - first.z);
             if (d < w.chain && d < bestD) { bestD = d; second = t; }
           }
@@ -1133,7 +1192,7 @@
         if (len(p.x - e[0], p.z - e[1]) < 1.7) return;
         p.portalLock = null;
       }
-      if (p.swim || p.climbT > 0 || p.y > 1.5 || p.y < -0.3) return;
+      if (p.swim || p.climbT > 0 || p.y > 1.5 || p.y < -0.3 || p.carry != null) return;
       for (let i = 0; i < ports.length; i++) for (let s = 0; s < 2; s++) {
         const e = s ? ports[i].b : ports[i].a, o = s ? ports[i].a : ports[i].b;
         if (len(p.x - e[0], p.z - e[1]) > 0.95) continue;
@@ -1178,6 +1237,76 @@
       }
       for (const it of S.items) if (!(it.y > 0)) carry(it);
       for (const t of S.traps) carry(t);
+      for (const f of S.flags) if (f.state === 'dropped') carry(f);
+    }
+
+    // ---- team objectives
+    function teamWins(t) {
+      if (S.phase !== 'play') return;
+      S.phase = 'over';
+      S.winTeam = t;
+      const best = Object.values(S.players).filter((p) => p.team === t).sort((a, b) => b.kos - a.kos)[0];
+      S.winner = best ? best.id : null;
+      emit('over', { winner: S.winner, team: t });
+    }
+    function hillPos() {
+      const h = g.world.map.hills[S.hill.i];
+      if (h.m != null) { const m = g.world.movers[h.m]; return { x: m.x, z: m.z, r: h.r, m: h.m }; }
+      return { x: h.x, z: h.z, r: h.r };
+    }
+    function returnFlag(f, by) {
+      f.state = 'home'; f.x = f.hx; f.z = f.hz; f.carrier = null; f.t = 0;
+      emit('flagreturn', { team: f.team, by: by ? by.id : null });
+    }
+    function dropFlag(p, cause) {
+      const f = S.flags[p.carry];
+      p.carry = null;
+      if (!f) return;
+      // knocked off the map or sunk: it goes home; otherwise it sits where you fell
+      if (cause === 'blast' || !onPlatformPoint(p.x, p.z)) { returnFlag(f, null); return; }
+      f.state = 'dropped'; f.x = p.x; f.z = p.z; f.carrier = null; f.t = C.flagReturn;
+      emit('flagdrop', { team: f.team, x: f.x, z: f.z });
+    }
+    function stepObjective(dt) {
+      if (S.mode === 'team') {
+        const t = S.teamScore.findIndex((v) => v >= C.teamKOs);
+        if (t >= 0) teamWins(t);
+      } else if (S.mode === 'koth') {
+        const H = S.hill, spots = g.world.map.hills;
+        H.t -= dt;
+        if (H.t <= 0) { H.i = (H.i + 1) % spots.length; H.t = C.kothMove; H.owner = -1; emit('hill', hillPos()); }
+        const hp = hillPos(), present = new Set();
+        for (const p of Object.values(S.players)) if (p.alive && !p.swim && p.y > -0.5 && p.y < 2.5 && len(p.x - hp.x, p.z - hp.z) <= hp.r) present.add(p.team);
+        H.contested = present.size > 1;
+        const owner = present.size === 1 ? [...present][0] : -1;
+        if (owner !== H.owner) { H.owner = owner; if (owner >= 0) emit('hilltake', { team: owner }); }
+        if (owner >= 0) { S.teamScore[owner] += dt; if (S.teamScore[owner] >= C.kothWin) teamWins(owner); }
+      } else if (S.mode === 'ctf') {
+        for (const f of S.flags) {
+          if (f.state === 'carried') {
+            const c = S.players[f.carrier];
+            if (!c || !c.alive || c.carry !== f.team) returnFlag(f, null);
+            else { f.x = c.x; f.z = c.z; }
+          } else if (f.state === 'dropped') { f.t -= dt; if (f.t <= 0) returnFlag(f, null); }
+        }
+        for (const p of Object.values(S.players)) {
+          if (!p.alive || p.swim || p.air || p.climbT > 0) continue;
+          for (const f of S.flags) {
+            if (f.state === 'carried' || len(p.x - f.x, p.z - f.z) > 1.4) continue;
+            if (f.team === p.team) { if (f.state === 'dropped') returnFlag(f, p); }
+            else if (p.carry == null) { f.state = 'carried'; f.carrier = p.id; p.carry = f.team; emit('flagtake', { id: p.id, team: f.team, by: p.team }); }
+          }
+          const own = S.flags[p.team];
+          if (p.carry != null && own && own.state === 'home' && len(p.x - own.hx, p.z - own.hz) < 1.8) {
+            const f = S.flags[p.carry];
+            p.carry = null;
+            f.state = 'home'; f.x = f.hx; f.z = f.hz; f.carrier = null;
+            S.teamScore[p.team]++;
+            emit('capture', { id: p.id, team: p.team, from: f.team });
+            if (S.teamScore[p.team] >= C.ctfCaps) teamWins(p.team);
+          }
+        }
+      }
     }
 
     function useGadget(p, inp) {
@@ -1222,7 +1351,7 @@
         t.life -= dt;
         if (t.arm > 0) t.arm -= dt;
         let gone = t.life <= 0;
-        const victims = (r) => players.filter((q) => q.alive && q.id !== t.owner && !q.air && q.climbT <= 0 && len(q.x - t.x, q.z - t.z) < r);
+        const victims = (r) => players.filter((q) => q.alive && q.id !== t.owner && !ally(owner, q) && !q.air && q.climbT <= 0 && len(q.x - t.x, q.z - t.z) < r);
         if (t.kind === 'flounder' && !(t.arm > 0)) {
           const v = victims(GADGETS.flounder.trigger);
           if (v.length) {
@@ -1260,7 +1389,7 @@
             const gd = GADGETS.grouper;
             let best = null, bd = gd.range;
             for (const q of players) {
-              if (!q.alive || q.id === t.owner || q.air) continue;
+              if (!q.alive || q.id === t.owner || q.air || ally(owner, q)) continue;
               const d = len(q.x - t.x, q.z - t.z);
               if (d < bd) { bd = d; best = q; }
             }
@@ -1329,6 +1458,7 @@
       const heavy = p.weapon && WEAPONS[p.weapon.id].heavy;
       let speed = heavy ? C.heavySpeed : C.playerSpeed;
       if (p.slowT > 0) speed *= 0.6;
+      if (p.carry != null) speed *= C.carrySpeed;
       const ml = len(mx, mz);
       if (ml > 1) { mx /= ml; mz /= ml; }
       if (p.swim) {
@@ -1471,7 +1601,7 @@
           // shark torpedo: turn toward the nearest target in front of it
           let best = null, bd = 18;
           for (const t of Object.values(S.players)) {
-            if (t.id === pr.owner || !t.alive) continue;
+            if (t.id === pr.owner || !t.alive || ally(owner, t)) continue;
             const dx = t.x - pr.x, dz = t.z - pr.z, d = len(dx, dz);
             if (d < bd && (dx * pr.vx + dz * pr.vz) > 0) { bd = d; best = t; }
           }
@@ -1492,7 +1622,7 @@
         }
         if (!dead) {
           for (const t of Object.values(S.players)) {
-            if (t.id === pr.owner || !t.alive || t.y > 2.2 || t.climbT > 0 || pr.hitIds.includes(t.id)) continue;
+            if (t.id === pr.owner || !t.alive || t.y > 2.2 || t.climbT > 0 || pr.hitIds.includes(t.id) || ally(owner, t)) continue;
             if (len(t.x - pr.x, t.z - pr.z) < C.playerRadius + pr.rad) {
               if (w.kind === 'rocket') { dead = true; break; }
               hit(t, owner, w.dmg, pr.vx, pr.vz, w.kb, { slow: w.slow, splat: w.splat, w: pr.w });
@@ -1564,6 +1694,7 @@
       stepProjectiles(dt);
       stepTraps(dt);
       stepWorld(dt);
+      if (S.teams) { stepObjective(dt); if (S.phase !== 'play') return; }
       if (rounds) {
         if (S.breakT > 0) return;
         const all = Object.values(S.players);
@@ -1574,6 +1705,13 @@
           alive.sort((a, b) => b.hp - a.hp);
           endRound(alive[0]);
         }
+        return;
+      }
+      if (S.roundLeft <= 0 && S.teams) {
+        const order = S.teamScore.map((v, t) => t).sort((a, b) => S.teamScore[b] - S.teamScore[a]);
+        const tied = Math.floor(S.teamScore[order[0]]) === Math.floor(S.teamScore[order[1]]);
+        if (tied && S.roundLeft > -60) { if (!S.overtime) { S.overtime = true; emit('overtime', {}); } }
+        else teamWins(order[0]);
         return;
       }
       if (S.roundLeft <= 0) {
@@ -1598,13 +1736,18 @@
       return {
         map: S.map, gates: g.world.gates.map((gt) => (gt.pass ? 1 : 0)), buttons: g.world.buttons.map((b) => (b.down ? 1 : 0)),
         phase: S.phase, time: Math.round(S.time * 1000) / 1000, roundLeft: r2(S.roundLeft), roundSeconds: S.roundSeconds, overtime: !!S.overtime, winner: S.winner,
+        teams: S.teams, teamScore: S.teamScore.map((v) => Math.floor(v * 10) / 10), winTeam: S.winTeam,
+        goal: S.mode === 'team' ? C.teamKOs : S.mode === 'koth' ? C.kothWin : S.mode === 'ctf' ? C.ctfCaps : 0,
+        hill: S.hill ? Object.assign(hillPos(), { t: r2(S.hill.t), owner: S.hill.owner, contested: S.hill.contested }) : null,
+        flags: S.flags.map((f) => ({ team: f.team, x: r2(f.x), z: r2(f.z), hx: f.hx, hz: f.hz, state: f.state, carrier: f.carrier })),
+        bases: S.teams ? teamBases() : null,
         mode: S.mode, round: S.round, roundT: r2(S.roundT), breakT: r2(S.breakT), roundWinner: S.roundWinner, winRounds: C.winRounds, roundCap: C.roundCap,
         players: Object.values(S.players).map((p) => ({
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
           hp: Math.max(0, Math.round(p.hp)), armor: Math.round(p.armor), alive: p.alive, out: p.respawnT === Infinity, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: p.respawnT === Infinity ? -1 : r2(p.respawnT), dashN: p.dashN, dashRT: r2(p.dashRT), dashIF: r2(p.dashIF), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), freezeT: r2(p.freezeT), splatT: r2(p.splatT), blindT: r2(p.blindT), phaseT: r2(p.phaseT), dotT: r2(p.dotT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
-          bubble: p.bubble, lure: p.lure, gadget: p.gadget, roundWins: p.roundWins, kos: p.kos, deaths: p.deaths, caught: p.caught,
+          bubble: p.bubble, lure: p.lure, gadget: p.gadget, roundWins: p.roundWins, team: p.team, carry: p.carry, kos: p.kos, deaths: p.deaths, caught: p.caught,
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
         traps: S.traps.map((t) => ({ id: t.id, kind: t.kind, owner: t.owner, x: r2(t.x), z: r2(t.z), life: r2(t.life), armed: !(t.arm > 0), rot: t.rot ? r2(t.rot) : 0 })),
@@ -1649,9 +1792,26 @@
 
     let enemy = null, ed = 999;
     for (const o of Object.values(S.players)) {
-      if (o === p || !o.alive || o.air || o.climbT > 0) continue;
+      if (o === p || !o.alive || o.air || o.climbT > 0 || (S.teams && o.team === p.team)) continue;
       const d = len(o.x - p.x, o.z - p.z);
       if (d < ed) { ed = d; enemy = o; }
+    }
+    // team games: what the team needs from us right now (null = play it like free-for-all)
+    let obj = null;
+    if (S.mode === 'ctf') {
+      const own = S.flags[p.team];
+      if (p.carry != null) obj = { x: own.hx, z: own.hz, always: true, stop: 0.4 };
+      else if (own && own.state === 'dropped' && len(own.x - p.x, own.z - p.z) < 30) obj = { x: own.x, z: own.z, always: true, stop: 0.3 };
+      else if (own && own.state === 'carried' && S.players[own.carrier]) { enemy = S.players[own.carrier]; ed = len(enemy.x - p.x, enemy.z - p.z); }
+      else if (b.role === 0 && p.weapon) {
+        let f = null, fd = 1e9;
+        for (const q of S.flags) if (q.team !== p.team && q.state !== 'carried' && len(q.x - p.x, q.z - p.z) < fd) { fd = len(q.x - p.x, q.z - p.z); f = q; }
+        if (f) obj = { x: f.x, z: f.z, stop: 0.3 };
+      }
+    } else if (S.mode === 'koth' && S.hill && (p.weapon || b.role === 0)) {
+      const h = g.world.map.hills[S.hill.i];
+      const m = h.m != null ? g.world.movers[h.m] : null;
+      obj = { x: m ? m.x : h.x, z: m ? m.z : h.z, stop: h.r * 0.5 };
     }
     const enemyArmed = enemy && enemy.weapon;
 
@@ -1714,6 +1874,19 @@
         if (f.depth >= g.cfg.fishMinBite) out.fish = true;
         else if (ed < 4) out.dash = true; // bail out
       } else if (f.depth >= b.target && (f.biteT > 0 || f.depth >= b.target + 1.5 || p.difficulty === 'easy')) out.fish = true;
+      return out;
+    }
+
+    const enemyArmed0 = enemy && enemy.weapon;
+    if (obj && (obj.always || !enemy || ed > 7 || !p.weapon) && !p.fishing) {
+      // head for the objective; shoot anyone in reach on the way
+      moveTo(obj.x, obj.z, obj.stop);
+      if (p.weapon && enemy && ed < 9) {
+        const tx = enemy.x - p.x, tz = enemy.z - p.z, tl = len(tx, tz) || 1;
+        out.ax = tx / tl; out.az = tz / tl; out.aimDist = ed;
+        if (Math.random() < skill.fireRate) out.fire = true;
+      } else if (len(out.mx, out.mz) > 0.1) { out.ax = out.mx; out.az = out.mz; }
+      if (enemyArmed0 && ed < 5 && p.dashN > 0 && Math.random() < 0.05) out.dash = true;
       return out;
     }
 
@@ -1814,5 +1987,5 @@
     return out;
   }
 
-  return { rarityOdds, walkStep, nearestPlatformPoint, MAPS, makeWorld, useWorld, worldAt, moverPos, refreshWalls, GADGETS, BYCATCH, CFG, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { TEAM_MODES, TEAM_COLORS, TEAM_NAMES, rarityOdds, walkStep, nearestPlatformPoint, MAPS, makeWorld, useWorld, worldAt, moverPos, refreshWalls, GADGETS, BYCATCH, CFG, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });

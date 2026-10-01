@@ -71,12 +71,12 @@ wss.on('connection', (ws) => {
     } else if (msg.t === 'start' && id === room.host) {
       const g = room.game;
       if (typeof msg.map === 'string') g.setMap(msg.map);
-      if (msg.round === 'rounds') g.state.mode = 'rounds';
-      else if (msg.round) { g.state.mode = 'timed'; g.state.roundSeconds = Math.max(60, Math.min(1200, +msg.round)); }
+      if (msg.round === 'rounds' || Sim.TEAM_MODES[msg.round]) g.configure({ mode: msg.round, teams: msg.teams });
+      else if (msg.round) g.configure({ mode: 'timed', roundSeconds: +msg.round });
       // replace bots with the requested count
       for (const p of Object.values(g.state.players)) if (p.bot) g.removePlayer(p.id);
-      const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates'];
-      const bots = msg.bots != null ? Math.max(0, Math.min(4, +msg.bots)) : room.lastBots || 0;
+      const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel', 'Kelp Kelly', 'Mack Rell'];
+      const bots = msg.bots != null ? Math.max(0, Math.min(7, 8 - room.clients.size, +msg.bots)) : room.lastBots || 0;
       room.lastBots = bots;
       for (let i = 0; i < bots; i++) g.addPlayer('bot' + i, names[i], true, 'normal');
       g.start();

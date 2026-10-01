@@ -155,6 +155,11 @@ Bots walk a 2 m grid over the boards, dash short water gaps, press buttons for r
 ### Round and scoring
 
 - **Rounds** (default): last one standing takes the round, first to 5 rounds wins. After 40 s a feeding frenzy starts: lines sink faster and faster, so somebody lands a one-shot. A round that reaches 100 s goes to whoever has the most health.
+- **Team modes** (2v2, 3v3, or three teams of two; 5 minutes; 1.5 s respawns near your base; no friendly fire):
+  - **Team KOs**: first team to 20 KOs.
+  - **King of the Hill**: a ring that moves every 30 s (sometimes onto a raft). Score a point per second while only your team is inside it. 50 wins.
+  - **Capture the Flag**: each base has a golden fish. Grab theirs, run it to yours while yours is at home. Carriers move 12% slower and can't use portals. A dropped fish goes home after 15 s, or straight away if a teammate touches it. 3 captures win. On Harbor Box the bases are out on the jetty ends.
+  - When time runs out the leading team wins, with up to 60 s of overtime if it's level.
 - **Timed** (5 or 10 minutes): most KOs wins. Fewer times KO'd breaks a tie. If still tied, overtime runs for up to 60 s until someone pulls ahead.
 
 ## Pacing targets and what the bots show

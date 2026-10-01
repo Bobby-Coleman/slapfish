@@ -410,6 +410,92 @@ function updateMap(s, prev, alpha, t, dt) {
   });
 }
 
+// ------------------------------------------------------------------ team objectives
+// Bases (a coloured pad and banner), golden-fish flags, and the hill ring for King of the Hill.
+const TEAM_COLORS = Sim.TEAM_COLORS, TEAM_NAMES = Sim.TEAM_NAMES;
+const objView = { key: '', group: null, bases: [], flags: [], hill: null };
+function makeFlag(color) {
+  const g = new THREE.Group();
+  const pole = mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), '#ffffff');
+  pole.position.y = 1.3;
+  const cloth = mesh(new THREE.BoxGeometry(0.05, 0.7, 1.1), color);
+  cloth.position.set(0, 2.2, 0.58);
+  // the golden fish on top
+  const body = mesh(new THREE.SphereGeometry(0.32, 10, 8), '#ffd23f', { emissive: '#7a5200' });
+  body.scale.set(1, 0.7, 1.6);
+  body.position.y = 2.85;
+  const tail = mesh(new THREE.ConeGeometry(0.28, 0.45, 4), '#ffb22e');
+  tail.rotation.x = Math.PI / 2;
+  tail.position.set(0, 2.85, -0.6);
+  g.add(pole, cloth, body, tail);
+  return g;
+}
+function syncObjectives(s, t, dt) {
+  const key = s.teams ? `${s.mode}:${s.teams}:${s.map}` : '';
+  if (key !== objView.key) {
+    if (objView.group) scene.remove(objView.group);
+    objView.key = key; objView.group = null; objView.bases = []; objView.flags = []; objView.hill = null;
+    if (!key) return;
+    objView.group = new THREE.Group();
+    scene.add(objView.group);
+    (s.bases || []).forEach((b, i) => {
+      const col = TEAM_COLORS[i];
+      const pad = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.8, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide }));
+      pad.rotation.x = -Math.PI / 2;
+      pad.position.set(b.x, 0.04, b.z);
+      objView.group.add(pad);
+      if (s.mode !== 'ctf') { const f = makeFlag(col); f.position.set(b.x, 0, b.z); f.children[2].visible = f.children[3].visible = false; objView.group.add(f); }
+      objView.bases.push(pad);
+    });
+    if (s.mode === 'ctf') for (const f of s.flags) { const m = makeFlag(TEAM_COLORS[f.team]); objView.group.add(m); objView.flags.push(m); }
+    if (s.mode === 'koth') {
+      const g = new THREE.Group();
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.06;
+      const wall = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 3, 40, 1, true), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
+      wall.position.y = 1.5;
+      const crown = new THREE.Group();
+      const band = mesh(new THREE.CylinderGeometry(0.5, 0.45, 0.35, 10, 1, true), '#ffd23f', { emissive: '#6a4a00', side: THREE.DoubleSide });
+      crown.add(band);
+      for (let k = 0; k < 5; k++) { const sp = mesh(new THREE.ConeGeometry(0.12, 0.35, 4), '#ffd23f', { emissive: '#6a4a00' }); const a = (k / 5) * Math.PI * 2; sp.position.set(Math.cos(a) * 0.45, 0.33, Math.sin(a) * 0.45); crown.add(sp); }
+      crown.position.y = 4;
+      g.add(ring, wall, crown);
+      objView.group.add(g);
+      objView.hill = { g, ring, wall, crown };
+    }
+  }
+  if (!objView.group) return;
+  for (const pad of objView.bases) pad.material.opacity = 0.55 + Math.sin(t * 3) * 0.2;
+  s.flags.forEach((f, i) => {
+    const m = objView.flags[i];
+    if (!m) return;
+    if (f.state === 'carried') {
+      const cv = views.players.get(f.carrier);
+      if (cv) m.position.set(cv.x, (cv.y || 0) + 1.4, cv.z);
+      m.scale.setScalar(0.7);
+      m.rotation.y += dt * 4;
+    } else {
+      m.position.set(f.x, f.state === 'dropped' ? 0.1 + Math.abs(Math.sin(t * 4)) * 0.3 : 0, f.z);
+      m.scale.setScalar(1);
+      m.rotation.y += dt * (f.state === 'dropped' ? 3 : 0.6);
+    }
+  });
+  if (objView.hill && s.hill) {
+    const h = s.hill, v = objView.hill;
+    let x = h.x, z = h.z;
+    if (h.m != null && mapView && mapView.world.movers[h.m]) { const q = Sim.moverPos(mapView.world.movers[h.m], source.prev && source.prev.time <= s.time ? source.prev.time + (s.time - source.prev.time) * source.alpha : s.time); x = q.x; z = q.z; }
+    v.g.position.set(x, 0, z);
+    v.ring.scale.set(h.r, h.r, 1);
+    v.wall.scale.set(h.r, 1, h.r);
+    const col = h.contested ? (Math.sin(t * 14) > 0 ? '#ffffff' : '#ff5a5f') : h.owner >= 0 ? TEAM_COLORS[h.owner] : '#ffffff';
+    v.ring.material.color.set(col); v.wall.material.color.set(col);
+    v.wall.material.opacity = h.owner >= 0 ? 0.26 : 0.14;
+    v.crown.rotation.y += dt * 1.5;
+    v.crown.position.y = 3.8 + Math.sin(t * 2) * 0.25;
+  }
+}
+
 // a ring of little buoys marks the edge of the map: get launched past it and you're out
 const buoys = [];
 for (let i = 0; i < 48; i++) {
@@ -1069,10 +1155,11 @@ let source = null; // { tick(dt), myId, prev, curr, alpha, events[], sendInput(i
 let playing = false, paused = false;
 
 function localSource(opts) {
-  const g = Sim.createGame(Object.assign({ map: opts.map }, opts.round === 'rounds' ? { mode: 'rounds' } : { mode: 'timed', roundSeconds: +opts.round }));
+  const r = opts.round, team = !!Sim.TEAM_MODES[r];
+  const g = Sim.createGame({ map: opts.map, teams: opts.teams, mode: team ? r : r === 'rounds' ? 'rounds' : 'timed', roundSeconds: team || r === 'rounds' ? undefined : +r });
   buildMap(g.world);
   g.addPlayer('me', opts.name, false);
-  const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel'];
+  const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel', 'Kelp Kelly', 'Mack Rell'];
   for (let i = 0; i < opts.bots; i++) g.addPlayer('bot' + i, names[i % names.length], true, opts.difficulty);
   g.start();
   let acc = 0;
@@ -1123,7 +1210,7 @@ function netSource(url, room, name, onLobby, onClose) {
         pending.dash = pending.fish = pending.use = pending.gadget = false;
       }
     },
-    start(round, bots, map) { ws.send(JSON.stringify({ t: 'start', round, bots, map })); },
+    start(round, bots, map, teams) { ws.send(JSON.stringify({ t: 'start', round, bots, map, teams })); },
     restart() { ws.send(JSON.stringify({ t: 'start' })); },
     stop() { try { ws.close(); } catch (e) {} },
   };
@@ -1185,6 +1272,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
   for (const p of s.players) {
     seen.add(p.id);
     let v = views.players.get(p.id);
+    if (v && v.color !== p.color) { scene.remove(v.obj, v.line, v.bobber); if (v.ice) scene.remove(v.ice); v.tag.remove(); views.players.delete(p.id); v = null; }
     if (!v) {
       const obj = makePlayer(p.color);
       scene.add(obj);
@@ -1203,7 +1291,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
       tierRing.rotation.x = -Math.PI / 2;
       bobber.add(tierRing);
       scene.add(bobber);
-      v = { obj, tag, line, bobber, tierRing, x: p.x, z: p.z, y: 0, rippleT: 0 };
+      v = { obj, tag, line, bobber, tierRing, x: p.x, z: p.z, y: 0, rippleT: 0, color: p.color };
       views.players.set(p.id, v);
     }
     const o = v.obj, u = o.userData;
@@ -1319,7 +1407,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
       v.tag.style.left = ((head.x + 1) / 2) * window.innerWidth + 'px';
       v.tag.style.top = ((1 - head.y) / 2) * window.innerHeight + 'px';
       const nm = v.tag.querySelector('.nm');
-      nm.textContent = p.name;
+      const mate = s.teams && meNow && meNow.team === p.team;
+      nm.textContent = (mate ? '▲ ' : '') + p.name + (p.carry != null ? ' 🐟' : '');
       nm.style.color = p.color;
       const pc = v.tag.querySelector('.pc');
       pc.innerHTML = `<span class="hpbar${p.hp <= 30 ? ' low' : ''}"><i style="width:${p.hp}%;background:${hpColor(p.hp)}"></i>${p.armor > 0 ? `<b style="width:${(p.armor / CFG.maxArmor) * 100}%"></b>` : ''}</span>`;
@@ -1554,8 +1643,18 @@ function updateHud(s, me) {
   }
   const score = (p) => (rounds ? p.roundWins : p.kos);
   const sorted = [...s.players].sort((a, b) => score(b) - score(a));
-  const key = sorted.map((p) => p.id + score(p) + (rounds && p.out ? 'x' : '')).join();
-  if (key !== lastScoreKey) {
+  const key = s.teams ? 'T' + s.teamScore.map(Math.floor).join() + (me ? me.team : '') : sorted.map((p) => p.id + score(p) + (rounds && p.out ? 'x' : '')).join();
+  if (key !== lastScoreKey && s.teams) {
+    // team games: one chip per team with its score toward the goal
+    lastScoreKey = key;
+    document.querySelectorAll('#topbar .score').forEach((e) => e.remove());
+    s.teamScore.forEach((v, i) => {
+      const d = document.createElement('div');
+      d.className = 'score' + (me && me.team === i ? ' me' : '');
+      d.innerHTML = `<span class="dot" style="background:${TEAM_COLORS[i]}"></span><span class="nm">${TEAM_NAMES[i]}</span> <b>${Math.floor(v)}<small style="opacity:.6">/${s.goal}</small></b>`;
+      $('topbar').appendChild(d);
+    });
+  } else if (key !== lastScoreKey) {
     lastScoreKey = key;
     document.querySelectorAll('#topbar .score').forEach((e) => e.remove());
     for (const p of sorted) {
@@ -1673,6 +1772,9 @@ function drawMinimap(s, me) {
   for (const r of M.boxes) box(r);
   for (const m of M.movers) { const q = Sim.moverPos(m, s.time); mm.fillStyle = m.deep ? '#164f96' : '#b07a48'; mm.fillRect((q.x - m.hw) * sc, (q.z - m.hd) * sc, m.hw * 2 * sc, m.hd * 2 * sc); }
   M.portals.forEach((q, i) => { mm.fillStyle = PORTAL_COLORS[i % PORTAL_COLORS.length]; for (const e of [q.a, q.b]) { mm.beginPath(); mm.arc(e[0] * sc, e[1] * sc, 6, 0, 7); mm.fill(); } });
+  if (s.hill) { mm.strokeStyle = s.hill.owner >= 0 ? TEAM_COLORS[s.hill.owner] : '#ffffff'; mm.lineWidth = 5; mm.beginPath(); mm.arc(s.hill.x * sc, s.hill.z * sc, s.hill.r * sc, 0, 7); mm.stroke(); }
+  (s.bases || []).forEach((b, i) => { mm.strokeStyle = TEAM_COLORS[i]; mm.lineWidth = 4; mm.strokeRect(b.x * sc - 9, b.z * sc - 9, 18, 18); });
+  for (const f of s.flags || []) { mm.fillStyle = '#ffd23f'; mm.strokeStyle = TEAM_COLORS[f.team]; mm.lineWidth = 4; mm.beginPath(); mm.moveTo(f.x * sc, f.z * sc - 12); mm.lineTo(f.x * sc + 9, f.z * sc + 6); mm.lineTo(f.x * sc - 9, f.z * sc + 6); mm.closePath(); mm.fill(); mm.stroke(); }
   for (const it of s.items) {
     mm.fillStyle = it.kind === 'fish' ? RARITY_COLORS[WEAPONS[it.weapon].rarity] : DROP_COLORS[it.kind] || '#222';
     mm.fillRect(it.x * sc - 5, it.z * sc - 5, 10, 10);
@@ -1823,6 +1925,23 @@ function handleEvents(s, me) {
         else toast(w ? `<span style="color:${w.color}">${escapeHtml(w.name)}</span> takes the round` : 'Nobody survived!', '#fff', 2.5);
         break;
       }
+      case 'flagtake': {
+        const mine = me && me.team === e.team;
+        if (e.id === myId) toast('YOU HAVE THEIR FISH!<small>run it home to your base</small>', '#ffd23f', 2);
+        else toast(mine ? '<small>they took our golden fish!</small>' : `<small>${escapeHtml(nameOf(s, e.id))} grabbed the ${TEAM_NAMES[e.team]} fish</small>`, mine ? '#ff5a5f' : '#fff', 1.6);
+        tone(mine ? 300 : 700, 0.25, 'square', 0.05, mine ? 0.6 : 1.5);
+        break;
+      }
+      case 'flagdrop': feed(`🐟 The <b style="color:${TEAM_COLORS[e.team]}">${TEAM_NAMES[e.team]}</b> fish was dropped`); break;
+      case 'flagreturn': feed(`🐟 The <b style="color:${TEAM_COLORS[e.team]}">${TEAM_NAMES[e.team]}</b> fish went home`); if (e.by === myId) toast('<small>fish returned</small>', '#5ee07a', 1.2); break;
+      case 'capture': {
+        const ours = me && me.team === e.team;
+        toast(ours ? 'CAPTURE! 🐟' : `<span style="color:${TEAM_COLORS[e.team]}">${TEAM_NAMES[e.team]}</span> captured`, ours ? '#ffd23f' : '#fff', 2.2);
+        if (ours) SFX.win(); else SFX.ko();
+        break;
+      }
+      case 'hill': toast('<small>the hill moved! 👑</small>', '#fff', 1.4); tone(520, 0.2, 'triangle', 0.06, 1.5); break;
+      case 'hilltake': if (me && me.team === e.team) tone(880, 0.12, 'triangle', 0.05, 1.2); break;
       case 'gate': {
         const near = me && Math.hypot(me.x - e.x, me.z - e.z) < 18;
         if (near || e.by === myId) { noise(0.3, 0.12, 500); tone(e.pass ? 180 : 140, 0.35, 'sawtooth', 0.04, e.pass ? 0.6 : 1.6); }
@@ -1838,7 +1957,12 @@ function handleEvents(s, me) {
       }
       case 'frenzy': toast('FEEDING FRENZY<small>lines sink faster and faster: deep fish are biting</small>', '#ff9f43', 2.2); [330, 392, 494, 659].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0.05), i * 70)); break;
       case 'overtime': toast('OVERTIME<small>next KO wins</small>', '#ffd23f', 2.5); break;
-      case 'start': if (e.mode !== 'rounds') toast('GO FISH!', '#ffd23f', 1.5); break;
+      case 'start': {
+        const goal = { team: `first team to ${CFG.teamKOs} KOs`, koth: `stand in the ring alone to score · ${CFG.kothWin} wins`, ctf: `steal their golden fish, run it home · ${CFG.ctfCaps} wins` }[e.mode];
+        if (goal) toast(`${Sim.TEAM_MODES[e.mode].toUpperCase()}<small>${goal}${me && me.team >= 0 ? ` · you're <b style="color:${TEAM_COLORS[me.team]}">${TEAM_NAMES[me.team]}</b>` : ''}</small>`, '#ffd23f', 2.6);
+        else if (e.mode !== 'rounds') toast('GO FISH!', '#ffd23f', 1.5);
+        break;
+      }
       case 'spawn': if (e.id === myId) { const p = s.players.find((q) => q.id === e.id); if (p) cam.yaw = Math.atan2(p.ax, p.az); cam.pitch = 0.32; } break;
     }
   }
@@ -1978,6 +2102,7 @@ function frame(now) {
       if (s.map && (!mapView || mapView.id !== s.map)) buildMap(source.local ? source.game.world : source.world);
       updateMap(s, source.prev, source.alpha, t, dt);
       syncPlayers(s, source.prev, source.alpha, t, dt);
+      syncObjectives(s, t, dt);
       syncProjectiles(s, source.prev, source.alpha);
       syncItems(s, t);
       syncTraps(s, t);
@@ -2033,7 +2158,24 @@ function renderGuide() {
 }
 $('btnGuide').onclick = () => { renderGuide(); $('menu').classList.add('hidden'); $('guide').classList.remove('hidden'); };
 $('btnGuideBack').onclick = () => { $('guide').classList.add('hidden'); $('menu').classList.remove('hidden'); };
-const getBots = seg('segBots'), getDiff = seg('segDiff'), getRound = seg('segRound'), getRoundNet = seg('segRoundNet'), getBotsNet = seg('segBotsNet'), getMap = seg('segMap'), getMapNet = seg('segMapNet');
+const getBots = seg('segBots'), getDiff = seg('segDiff'), getRound = seg('segRound'), getRoundNet = seg('segRoundNet'), getBotsNet = seg('segBotsNet'), getMap = seg('segMap'), getMapNet = seg('segMapNet'), getTeams = seg('segTeams'), getTeamsNet = seg('segTeamsNet');
+// team formats only matter for team modes; bot count only for free-for-all
+function syncModeRows() {
+  const team = !!Sim.TEAM_MODES[getRound()];
+  $('rowTeams').classList.toggle('hidden', !team);
+  $('rowBots').classList.toggle('hidden', team);
+  $('rowTeamsNet').classList.toggle('hidden', !Sim.TEAM_MODES[getRoundNet()]);
+  $('modeHint').textContent = {
+    rounds: 'last fisher standing wins the round · first to 5',
+    300: 'most KOs in 5 minutes · respawn in 1.5 s',
+    team: `first team to ${CFG.teamKOs} KOs · no friendly fire`,
+    koth: `hold the moving ring with nobody else in it · ${CFG.kothWin} s wins`,
+    ctf: `steal their golden fish, run it to your base · ${CFG.ctfCaps} wins`,
+  }[getRound()];
+}
+$('segRound').addEventListener('click', syncModeRows);
+$('segRoundNet').addEventListener('click', syncModeRows);
+syncModeRows();
 // the menu backdrop previews whichever map is picked
 $('segMap').addEventListener('click', () => { if (!playing) buildMap(Sim.makeWorld(getMap())); });
 buildMap(Sim.makeWorld(getMap()));
@@ -2048,6 +2190,8 @@ function clearViews() {
   for (const [, v] of views.items) scene.remove(v.m);
   for (const [, v] of views.pelicans) scene.remove(v.m, v.marker);
   for (const k in views) views[k].clear();
+  if (objView.group) scene.remove(objView.group);
+  objView.key = ''; objView.group = null;
   lastScoreKey = '';
   $('feed').innerHTML = '';
 }
@@ -2068,7 +2212,10 @@ $('btnSolo').onclick = () => {
   ac();
   saveName();
   clearViews();
-  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: getRound(), map: getMap() }));
+  // team games fill the teams with bots: 2v2, 3v3, or three teams of two
+  const team = !!Sim.TEAM_MODES[getRound()], fmt = getTeams();
+  const teams = team ? +fmt[0] : 0, size = team ? +fmt[2] : 0;
+  beginPlay(localSource({ name: $('name').value || 'You', bots: team ? teams * size - 1 : +getBots(), teams, difficulty: getDiff(), round: getRound(), map: getMap() }));
 };
 $('btnOnline').onclick = () => {
   saveName();
@@ -2106,7 +2253,7 @@ $('btnConnect').onclick = () => {
     if (playing && source === netSrc) { playing = false; hud.classList.add('hidden'); $('online').classList.remove('hidden'); }
   });
 };
-$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet(), getMapNet()); };
+$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet(), getMapNet(), +getTeamsNet()); };
 
 function togglePause() {
   if (!playing) return;
@@ -2132,7 +2279,11 @@ function showResults(s) {
   const rounds = s.mode === 'rounds';
   const ranked = [...s.players].sort((a, b) => (rounds ? b.roundWins - a.roundWins : 0) || b.kos - a.kos || a.deaths - b.deaths);
   const win = (s.winner && s.players.find((p) => p.id === s.winner)) || ranked[0];
-  $('resTitle').innerHTML = win && win.id === source.myId ? 'YOU <span>WIN!</span>' : `${escapeHtml(win ? win.name : '?')} <span>WINS</span>`;
+  const meP = s.players.find((p) => p.id === source.myId);
+  if (s.teams && s.winTeam != null) {
+    ranked.sort((a, b) => (a.team === s.winTeam ? -1 : 0) - (b.team === s.winTeam ? -1 : 0) || b.kos - a.kos);
+    $('resTitle').innerHTML = meP && meP.team === s.winTeam ? 'YOUR TEAM <span>WINS!</span>' : `<b style="color:${TEAM_COLORS[s.winTeam]}">${TEAM_NAMES[s.winTeam]}</b> <span>WINS</span>`;
+  } else $('resTitle').innerHTML = win && win.id === source.myId ? 'YOU <span>WIN!</span>' : `${escapeHtml(win ? win.name : '?')} <span>WINS</span>`;
   $('resHead').innerHTML = `<tr><th>Angler</th>${rounds ? '<th>Rounds</th>' : ''}<th>KOs</th><th>Deaths</th><th>Fish caught</th></tr>`;
   $('resBody').innerHTML = ranked.map((p) => `<tr><td><b style="color:${p.color}">${escapeHtml(p.name)}</b></td>${rounds ? `<td>${p.roundWins}</td>` : ''}<td>${p.kos}</td><td>${p.deaths}</td><td>${p.caught}</td></tr>`).join('');
   setTimeout(() => { if (playing) $('results').classList.remove('hidden'); }, 1500);

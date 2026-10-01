@@ -124,6 +124,7 @@
   .seg { display: inline-flex; background: #10223a14; border-radius: 12px; padding: 3px; gap: 3px; }
   .seg button { border: 0; background: transparent; padding: 4px 12px; border-radius: 9px; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; }
   .seg button.on { background: var(--ink); color: var(--paper); }
+  .seg.wrap { flex-wrap: wrap; }
   input[type=text] { font: inherit; padding: 6px 10px; border-radius: 10px; border: 2px solid #10223a33; color: var(--ink); background: #fff; flex: 1; min-width: 120px; }
   .big { display: block; width: 100%; border: 0; border-radius: 16px; padding: 12px; font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; margin-top: 12px; box-shadow: 0 5px 0 #10223a55; }
   .big:active { transform: translateY(3px); box-shadow: 0 2px 0 #10223a55; }
@@ -337,15 +338,16 @@
       <div class="mpanel">
         <div class="row"><label>Name</label><input id="name" type="text" maxlength="16" value="Bobby"></div>
         <div class="row"><label>Map</label><div class="seg" id="segMap"><button data-v="harbor" class="on">Harbor Box</button><button data-v="plus">Plus Pier</button></div></div>
-        <div class="row"><label>Mode</label><div class="seg" id="segRound"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
-        <div class="row"><label>Bots</label><div class="seg" id="segBots"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3" class="on">3</button><button data-v="5">5</button></div></div>
+        <div class="row"><label>Mode</label><div class="seg wrap" id="segRound"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="team">Team KOs</button><button data-v="koth">Hill</button><button data-v="ctf">Flag</button></div></div>
+        <div class="row hidden" id="rowTeams"><label>Teams</label><div class="seg" id="segTeams"><button data-v="2x2" class="on">2v2</button><button data-v="2x3">3v3</button><button data-v="3x2">2v2v2</button></div></div>
+        <div class="row" id="rowBots"><label>Bots</label><div class="seg" id="segBots"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3" class="on">3</button><button data-v="5">5</button></div></div>
         <div class="row"><label>Skill</label><div class="seg" id="segDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
         <div class="howto">
           <div><b>1</b> Grab a rod from a rack</div>
           <div><b>2</b> Cast off any edge: <kbd>R</kbd></div>
           <div><b>3</b> Whack people: <kbd>Click</kbd></div>
           <div><b>4</b> Dash everywhere: <kbd>Space</kbd></div>
-          <div class="sub">Gadgets on <kbd>Q</kbd> · last fisher standing wins the round · first to 5</div>
+          <div class="sub">Gadgets on <kbd>Q</kbd> · <span id="modeHint">last fisher standing wins the round · first to 5</span></div>
         </div>
       </div>
     </div>
@@ -370,8 +372,9 @@
     <div id="lobby" class="hidden">
       <ul id="lobbyList"></ul>
       <div class="row"><label>Map</label><div class="seg" id="segMapNet"><button data-v="harbor" class="on">Harbor Box</button><button data-v="plus">Plus Pier</button></div></div>
-      <div class="row"><label>Round</label><div class="seg" id="segRoundNet"><button data-v="rounds" class="on">Rounds (first to 5)</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
-      <div class="row"><label>Add bots</label><div class="seg" id="segBotsNet"><button data-v="0" class="on">0</button><button data-v="1">1</button><button data-v="2">2</button></div></div>
+      <div class="row"><label>Round</label><div class="seg wrap" id="segRoundNet"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="team">Team KOs</button><button data-v="koth">Hill</button><button data-v="ctf">Flag</button></div></div>
+      <div class="row hidden" id="rowTeamsNet"><label>Teams</label><div class="seg" id="segTeamsNet"><button data-v="2" class="on">2 teams</button><button data-v="3">3 teams</button></div></div>
+      <div class="row"><label>Add bots</label><div class="seg" id="segBotsNet"><button data-v="0" class="on">0</button><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div></div>
       <button class="big alt" id="btnStartNet">Start round</button>
       <div class="note" id="lobbyNote">Everyone in the same room plays together. The first player in the room starts the round.</div>
     </div>
