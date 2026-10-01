@@ -74,12 +74,24 @@
   const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   const RARITY_COLORS = { none: '#ffffff', common: '#cfd8dc', uncommon: '#5ee07a', rare: '#45a8ff', epic: '#c86bff', legendary: '#ffb22e' };
 
-  // Depth tiers: the longer the line is in, the deeper it sinks. Weights are per rarity, in RARITIES order.
+  // Rarity odds rise smoothly the longer your line is in (depth = seconds, sped up by pier tips and lures).
+  // Any cast can land anything: a legendary is about 1 in 25 after a second or two, about 1 in 3 at 10 s.
+  function smooth(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  function rarityOdds(d) {
+    const legendary = 0.04 + 0.26 * smooth(1.5, 10, d);
+    const epic = 0.06 + 0.19 * smooth(1, 8, d);
+    const rare = 0.10 + 0.17 * smooth(0.5, 6, d);
+    const uncommon = 0.22 - 0.07 * smooth(3, 10, d);
+    const common = Math.max(0, 1 - legendary - epic - rare - uncommon);
+    return [common, uncommon, rare, epic, legendary];
+  }
+
+  // Depth tiers are names for how deep the line has sunk (shown on the gauge); the odds come from rarityOdds().
   const TIERS = [
-    { id: 'shallow', name: 'Shallows', from: 0, w: [100, 0, 0, 0, 0] },
-    { id: 'reef', name: 'Reef', from: 2, w: [50, 45, 5, 0, 0] },
-    { id: 'deep', name: 'Deep', from: 4, w: [5, 35, 40, 18, 2] },
-    { id: 'abyss', name: 'Abyss', from: 7, w: [0, 10, 35, 35, 20] },
+    { id: 'shallow', name: 'Shallows', from: 0 },
+    { id: 'reef', name: 'Reef', from: 2.5 },
+    { id: 'deep', name: 'Deep', from: 5 },
+    { id: 'abyss', name: 'Abyss', from: 8 },
   ];
 
   // Every fish is a weapon. Power budget (uses x damage, plus knockback and area) climbs with rarity.
@@ -580,7 +592,7 @@
 
     function rollFish(p, depth) {
       const tier = tierFor(depth);
-      const ri = pickWeighted(tier.w);
+      const ri = pickWeighted(rarityOdds(depth));
       const list = BY_RARITY[RARITIES[ri]];
       const wid = list[Math.floor(Math.random() * list.length)];
       return { wid, tier: tier.id };
@@ -1403,5 +1415,5 @@
     return out;
   }
 
-  return { walkStep, nearestPlatformPoint, GADGETS, BYCATCH, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { rarityOdds, walkStep, nearestPlatformPoint, GADGETS, BYCATCH, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });

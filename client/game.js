@@ -1443,10 +1443,9 @@ function updateHud(s, me) {
     fp.classList.remove('hidden');
     const d = me.fishing.depth;
     $('needle').style.top = Math.min(100, (d / (CFG.autoReel * 0.75)) * 100) + '%';
-    const tier = Sim.tierFor(d);
-    const total = tier.w.reduce((a, b) => a + b, 0);
-    $('odds').innerHTML = tier.w.map((w, i) => (w ? `<i style="width:${(w / total) * 100}%;background:${RARITY_COLORS[RARITIES[i]]}"></i>` : '')).join('');
-    $('oddsTxt').textContent = d < CFG.fishMinBite ? 'Waiting for a bite…' : tier.w.map((w, i) => (w ? `${RARITIES[i][0].toUpperCase()}${Math.round((w / total) * 100)}%` : '')).filter(Boolean).join(' ');
+    const odds = Sim.rarityOdds(d);
+    $('odds').innerHTML = odds.map((w, i) => (w > 0.005 ? `<i style="width:${w * 100}%;background:${RARITY_COLORS[RARITIES[i]]}"></i>` : '')).join('');
+    $('oddsTxt').textContent = d < CFG.fishMinBite ? 'Sinking…' : `Legendary ${Math.round(odds[4] * 100)}% · Epic ${Math.round(odds[3] * 100)}% · Rare ${Math.round(odds[2] * 100)}%`;
     $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'Sinking… Space bails' : me.fishing.biteT > 0 ? 'BITE! Reel now!' : 'R to reel in';
     $('reelhint').style.color = me.fishing.biteT > 0 ? '#ffd23f' : '';
     fp.querySelector('h3').textContent = me.fishing.mult > 1.01 ? `Line in ×${me.fishing.mult.toFixed(2)}` : 'Line in the water';
