@@ -41,7 +41,7 @@
   .score { background: var(--hud-bg); padding: 2px 10px 2px 6px; border-radius: 14px; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 6px; }
   .score .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; }
   .score.me { outline: 2px solid var(--sun); }
-  #feed { position: absolute; top: 56px; right: 12px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  #feed { position: absolute; top: 140px; right: 12px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
   #feed div { background: var(--hud-bg); padding: 1px 10px; border-radius: 10px; font-size: 14px; animation: fade 5s forwards; }
   @keyframes fade { 0%, 80% { opacity: 1 } 100% { opacity: 0 } }
   #toast { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); text-align: center; font-weight: 800; font-size: 34px; text-shadow: 0 3px 0 #10223a, 0 0 12px #10223a99; -webkit-text-stroke: 1px #10223a; transition: opacity .3s; white-space: nowrap; }
@@ -51,6 +51,26 @@
   .meter { height: 14px; background: #0007; border-radius: 7px; overflow: hidden; margin: 3px 0; position: relative; }
   .meter i { position: absolute; inset: 0 auto 0 0; transition: width .15s; }
   .meter span { position: absolute; inset: 0; font-size: 11px; line-height: 14px; text-align: center; font-weight: 700; }
+  .hprow { display: flex; align-items: center; gap: 10px; }
+  .hpcol { flex: 1; min-width: 0; }
+  .meter.hp { height: 16px; border: 2px solid #ffffff55; }
+  #vitals.low { animation: throb .6s ease-in-out infinite; box-shadow: 0 0 0 3px #ff4d4d; }
+  #vitals.low .meter.hp { animation: throbbar .6s ease-in-out infinite; }
+  @keyframes throb { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  @keyframes throbbar { 0%, 100% { filter: none; } 50% { filter: brightness(1.8); } }
+  #dashpips { display: flex; gap: 6px; margin-top: 4px; }
+  #dashpips i { --f: 0; width: 34px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #9fe8ff calc(var(--f) * 100%), #ffffff26 0); }
+  #dashpips i.full { background: #9fe8ff; box-shadow: 0 0 6px #9fe8ff; }
+  #dashpips::after { content: 'DASH'; font-size: 10px; font-weight: 800; opacity: .7; line-height: 8px; }
+  .hpbar { display: block; width: 56px; height: 7px; background: #0008; border-radius: 4px; margin: 2px auto 0; overflow: hidden; position: relative; border: 1px solid #fff8; }
+  .hpbar i { position: absolute; left: 0; top: 0; bottom: 0; }
+  .hpbar b { position: absolute; left: 0; top: 0; height: 2px; background: #9fd3ff; }
+  .hpbar.low { animation: throbbar .6s ease-in-out infinite; }
+  .score.out { opacity: .45; text-decoration: line-through; }
+  .float.rarity { font-size: 30px; font-weight: 900; letter-spacing: 1px; -webkit-text-stroke: 1.5px #10223a; }
+  .float.rarity.legendary, .float.rarity.epic { font-size: 38px; text-shadow: 0 0 14px #ffd23f, 0 3px 0 #10223a; animation: shine .25s linear infinite alternate; }
+  @keyframes shine { from { filter: brightness(1); } to { filter: brightness(1.6); } }
+  .float.small { font-size: 15px; }
   #pct { font-weight: 800; font-size: 44px; line-height: 1; text-shadow: 0 3px 0 #10223a; font-variant-numeric: tabular-nums; }
   #pctsub { font-size: 12px; opacity: .85; margin-bottom: 4px; }
   #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: none; }
@@ -67,7 +87,9 @@
   #ammo { display: flex; gap: 3px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
   #ammo i { width: 8px; height: 12px; border-radius: 3px; background: var(--sun); }
   #ammo i.used { background: #ffffff30; }
-  #gadget { background: var(--hud-bg); border-radius: 14px; padding: 6px 10px; width: 210px; display: flex; gap: 8px; align-items: center; border: 3px solid transparent; }
+  #gadget { position: absolute; top: 10px; right: 10px; background: var(--hud-bg); border-radius: 14px; padding: 6px 10px; width: 220px; display: flex; gap: 8px; align-items: center; border: 3px solid transparent; }
+  #gadget.pop { animation: pop .5s ease-out; }
+  @keyframes pop { 0% { transform: scale(1); } 30% { transform: scale(1.25) rotate(-4deg); box-shadow: 0 0 24px #3ddc84; } 100% { transform: scale(1); } }
   #gadget.empty { opacity: .6; }
   #gicon { font-size: 28px; width: 34px; text-align: center; }
   #gname { font-weight: 800; font-size: 15px; line-height: 1.1; }
@@ -132,7 +154,9 @@
   #tGadget { bottom: calc(350px + env(safe-area-inset-bottom, 0px)); right: 22px; width: 62px; height: 62px; font-size: 11px; line-height: 1.1; background: #3ddc84cc; }
   #tGadget.dim { opacity: .45; }
   #tPause { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--hud-bg); color: #fff; font-size: 18px; pointer-events: auto; }
-  body.touch #help, body.touch #minimap, body.touch #gadget { display: none; }
+  body.touch #help, body.touch #minimap, body.touch #gdesc, body.touch #gadget kbd { display: none; }
+  body.touch #gadget { display: none; }
+  #tGadget.pop { animation: pop .5s ease-out; }
   body.touch #bottom { bottom: auto; top: 96px; left: 8px; right: 8px; gap: 6px; align-items: flex-start; }
   body.touch #vitals { width: 130px; padding: 6px 8px; }
   body.touch #weapon { padding: 4px 8px; min-width: 0; flex: 1; }
@@ -145,7 +169,8 @@
   body.touch #fishing { top: 220px; transform: none; left: 8px; right: auto; width: 120px; padding: 6px; }
   body.touch #gauge { height: 140px; }
   body.touch #feed { top: 220px; }
-  body.touch #toast { font-size: 26px; top: 30%; }
+  body.touch #toast { font-size: 24px; top: 30%; white-space: normal; width: calc(100vw - 32px); }
+  body.touch #toast small { font-size: 14px; }
   @media (max-width: 700px) {
     #help, #minimap { display: none; }
     #gadget { width: auto; }
@@ -167,6 +192,7 @@
   <div id="topbar"><div id="timer">10:00</div></div>
   <div id="feed"></div>
   <div id="toast"></div>
+  <div id="gadget" class="empty"><div id="gicon">·</div><div><div id="gname">No gadget</div><div id="gcharges"></div><div id="gdesc">Deep catches can bring up bycatch</div></div><kbd>Q</kbd></div>
   <div id="crosshair"></div>
   <div id="prompt" class="hidden"></div>
   <div id="fishing" class="hidden">
@@ -178,12 +204,12 @@
   </div>
   <div id="bottom">
     <div id="vitals">
-      <div id="pct">0%</div><div id="pctsub">damage</div>
+      <div class="hprow"><div id="pct">100</div><div class="hpcol"><div class="meter hp"><i id="hpbar"></i></div><div id="pctsub">health</div></div></div>
       <div class="meter"><i id="armorbar"></i><span id="armortxt">armor 0</span></div>
+      <div id="dashpips" title="Dash charges"></div>
       <div id="buffs"></div>
     </div>
     <div id="weapon"><div id="wname">Slap</div><div id="wdesc">Grab a rod from the center</div><div id="ammo"></div></div>
-    <div id="gadget" class="empty"><div id="gicon">·</div><div><div id="gname">No gadget</div><div id="gcharges"></div><div id="gdesc">Deep catches can bring up bycatch</div></div><kbd>Q</kbd></div>
     <div id="help">
       <b>WASD</b> move · <b>Mouse</b> look & aim<br>
       <b>Click</b> attack · <b>Space</b> dash<br>
@@ -212,7 +238,7 @@
     <div class="row"><label>Your name</label><input id="name" type="text" maxlength="16" value="Bobby"></div>
     <div class="row"><label>Bots</label><div class="seg" id="segBots"><button data-v="1" class="on">1</button><button data-v="2">2</button><button data-v="3">3</button></div></div>
     <div class="row"><label>Bot skill</label><div class="seg" id="segDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
-    <div class="row"><label>Round</label><div class="seg" id="segRound"><button data-v="180">3 min</button><button data-v="300">5 min</button><button data-v="600" class="on">10 min</button></div></div>
+    <div class="row"><label>Round</label><div class="seg" id="segRound"><button data-v="rounds" class="on">Rounds (first to 5)</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
     <button class="big play" id="btnSolo">Play vs bots</button>
     <button class="big alt" id="btnOnline">Play online with friends</button>
     <div class="controls">
@@ -232,7 +258,7 @@
     <button class="big play" id="btnConnect">Join room</button>
     <div id="lobby" class="hidden">
       <ul id="lobbyList"></ul>
-      <div class="row"><label>Round</label><div class="seg" id="segRoundNet"><button data-v="180">3 min</button><button data-v="300">5 min</button><button data-v="600" class="on">10 min</button></div></div>
+      <div class="row"><label>Round</label><div class="seg" id="segRoundNet"><button data-v="rounds" class="on">Rounds (first to 5)</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
       <div class="row"><label>Add bots</label><div class="seg" id="segBotsNet"><button data-v="0" class="on">0</button><button data-v="1">1</button><button data-v="2">2</button></div></div>
       <button class="big alt" id="btnStartNet">Start round</button>
       <div class="note" id="lobbyNote">Everyone in the same room plays together. The first player in the room starts the round.</div>
@@ -253,7 +279,7 @@
 <div id="results" class="screen hidden">
   <div class="card">
     <h1 class="logo" id="resTitle" style="font-size:44px">ROUND OVER</h1>
-    <table><thead><tr><th>Angler</th><th>KOs</th><th>Falls/KOs taken</th><th>Fish caught</th></tr></thead><tbody id="resBody"></tbody></table>
+    <table><thead id="resHead"><tr><th>Angler</th><th>KOs</th><th>Deaths</th><th>Fish caught</th></tr></thead><tbody id="resBody"></tbody></table>
     <button class="big play" id="btnAgain">Play again</button>
     <button class="big alt" id="btnMenu">Menu</button>
   </div>
@@ -272,34 +298,42 @@
 
   // ---------------------------------------------------------------- tuning
   const CFG = {
-    roundSeconds: 600,
+    roundSeconds: 600, // timed mode length
+    mode: 'rounds', // 'rounds': die and you're out until the next round; 'timed': most KOs, fast respawn
+    winRounds: 5, // rounds mode: first to this many round wins takes the match
+    roundCap: 100, // rounds mode: a round that runs this long goes to whoever has the most health
+    roundBreak: 3, // seconds between rounds
     tickRate: 30,
-    playerSpeed: 7.2,
-    heavySpeed: 6.0,
+    playerSpeed: 7.6,
+    heavySpeed: 6.6,
     playerRadius: 0.55,
-    healPct: 30, // Fish & Chips heals this much damage %
+    maxHp: 100,
+    healHp: 45, // Fish & Chips
     maxArmor: 50,
-    respawnSeconds: 5,
-    spawnInvuln: 1.5,
-    dashSpeed: 19,
-    dashTime: 0.16,
-    dashCooldown: 1.4,
+    respawnSeconds: 1.5, // timed mode
+    spawnInvuln: 1.2,
+    dashSpeed: 30,
+    dashTime: 0.2, // about 6 units
+    dashCharges: 2,
+    dashRecharge: 1.2, // per charge
+    dashIframes: 0.15, // can't be hit at the start of a dash
+    waterDash: { up: 9, speed: 12 }, // dashing out of the water hops you onto anything close
     kbScale: 1.0, // global knockback tuning
     dmgScale: 1, // global damage tuning
-    usesScale: 1.25, // global ammo tuning
-    pctScale: 100, // Smash-style: launch power = kb * kbScale * (1 + damage% / pctScale)
+    usesScale: 1, // global ammo tuning
+    hurtScale: 120, // knockback grows as you lose health: kb * (1 + missingHp / hurtScale)
     launchUp: 0.45, // vertical share of a launch
     airThreshold: 6, // launches weaker than this just slide you along the ground
     gravity: 30,
-    blastRadius: 40, // fly or swim past this ring and you're KO'd
+    blastRadius: 40, // fly or swim past this ring and you're KO'd instantly
     waterY: -0.9,
-    swimSpeed: 3.4,
-    climbTime: 0.5,
+    swimSpeed: 5,
+    climbTime: 0.35,
     creditWindow: 8, // seconds a hit counts for KO credit
-    rackRespawn: 6,
-    fishMinBite: 2.5,
-    reelTime: 0.6,
-    autoReel: 30,
+    rackRespawn: 4,
+    fishMinBite: 0.5, // reel in any time after this and you always get something
+    reelTime: 0.3,
+    autoReel: 12,
     pierTipMult: 1.35,
     catchUpGap: 3,
     catchUpMult: 1.25,
@@ -307,8 +341,9 @@
     pelicanEvery: 40,
     pelicanJitter: 10,
     groundFishLife: 20,
-    biteWindow: 0.55, // reel while the bobber is pulled under for a perfect catch
-    perfectBonus: 1.25, // perfect catch ammo multiplier
+    biteWindow: 0.5, // reel while the bobber is pulled under for a perfect catch
+    biteEvery: [1.5, 3], // seconds between bites
+    perfectBonus: 1, // perfect catch: this many extra uses
   };
 
   const MAP = {
@@ -329,25 +364,24 @@
 
   // Depth tiers: the longer the line is in, the deeper it sinks. Weights are per rarity, in RARITIES order.
   const TIERS = [
-    { id: 'shallow', name: 'Shallows', from: 0, w: [70, 25, 5, 0, 0] },
-    { id: 'reef', name: 'Reef', from: 6, w: [35, 42, 20, 3, 0] },
-    { id: 'deep', name: 'Deep', from: 12, w: [12, 33, 38, 15, 2] },
-    { id: 'abyss', name: 'Abyss', from: 20, w: [3, 17, 40, 30, 10] },
+    { id: 'shallow', name: 'Shallows', from: 0, w: [100, 0, 0, 0, 0] },
+    { id: 'reef', name: 'Reef', from: 2, w: [50, 45, 5, 0, 0] },
+    { id: 'deep', name: 'Deep', from: 4, w: [5, 35, 40, 18, 2] },
+    { id: 'abyss', name: 'Abyss', from: 7, w: [0, 10, 35, 35, 20] },
   ];
 
   // Every fish is a weapon. Power budget (uses x damage, plus knockback and area) climbs with rarity.
   const WEAPONS = {
-    slap: { name: 'Slap', rarity: 'none', kind: 'melee', dmg: 6, kb: 7, cd: 0.45, uses: Infinity, range: 1.9, arc: 0.5 },
-    sardine: { name: 'Sardine Shooter', rarity: 'common', kind: 'shot', dmg: 8, kb: 3.5, cd: 0.25, uses: 28, speed: 32, life: 0.55, rad: 0.25, desc: 'Fast little pistol.' },
-    mackerel: { name: 'Mackerel Slapper', rarity: 'common', kind: 'melee', dmg: 12, kb: 10, cd: 0.5, uses: 20, range: 2.3, arc: 0.4, desc: 'A proper slap.' },
-    squid: { name: 'Squid Ink Blaster', rarity: 'uncommon', kind: 'shot', dmg: 6, kb: 2, cd: 0.3, uses: 25, pellets: 3, spread: 0.22, speed: 22, life: 0.5, rad: 0.35, slow: 2, desc: 'Ink spray that slows.' },
-    puffer: { name: 'Pufferfish Grenade', rarity: 'uncommon', kind: 'lob', dmg: 30, kb: 17, cd: 0.9, uses: 8, maxRange: 13, aoe: 3.4, flight: 0.6, desc: 'Lobbed, pops on landing.' },
-    swordfish: { name: 'Swordfish', rarity: 'rare', kind: 'melee', dmg: 22, kb: 17, cd: 0.65, uses: 16, range: 3.3, arc: 0.55, lunge: 15, desc: 'Lunging blade. Get close.' },
-    tuna: { name: 'Tuna Cannon', rarity: 'rare', kind: 'shot', dmg: 18, kb: 22, cd: 0.95, uses: 10, speed: 26, life: 0.9, rad: 0.8, desc: 'Slow, huge knockback.' },
-    hammerhead: { name: 'Hammerhead', rarity: 'epic', kind: 'slam', dmg: 32, kb: 24, cd: 1.1, uses: 12, aoe: 2.6, reach: 1.8, heavy: true, desc: 'Ground slam. Heavy.' },
-    eel: { name: 'Electric Eel', rarity: 'epic', kind: 'zap', dmg: 13, kb: 10, cd: 0.5, uses: 20, range: 13, cone: 0.85, chain: 6, stun: 0.5, desc: 'Auto-aim zap, chains, stuns.' },
-    shark: { name: 'Shark Rocket', rarity: 'legendary', kind: 'rocket', dmg: 38, kb: 28, cd: 1.25, uses: 7, speed: 20, life: 1.5, rad: 0.5, aoe: 3.6, desc: 'Explosive. Clears piers.' },
-    narwhal: { name: 'Golden Narwhal', rarity: 'legendary', kind: 'pierce', dmg: 45, kb: 22, cd: 1.3, uses: 7, speed: 60, life: 0.5, rad: 0.35, desc: 'Piercing sniper lance.' },
+    sardine: { name: 'Sardine Burst', rarity: 'common', kind: 'shot', dmg: 9, kb: 4, cd: 0.45, uses: 3, pellets: 4, spread: 0.13, speed: 34, life: 0.42, rad: 0.25, desc: 'Shotgun spray. Brutal up close.' },
+    mackerel: { name: 'Mackerel Club', rarity: 'common', kind: 'melee', dmg: 34, kb: 11, cd: 0.45, uses: 3, range: 2.4, arc: 0.3, desc: 'A wide, meaty swing.' },
+    squid: { name: 'Squid Ink Blaster', rarity: 'uncommon', kind: 'shot', dmg: 12, kb: 3, cd: 0.4, uses: 3, pellets: 3, spread: 0.2, speed: 24, life: 0.55, rad: 0.35, slow: 2, desc: 'Ink spray that slows.' },
+    puffer: { name: 'Pufferfish Grenade', rarity: 'uncommon', kind: 'lob', dmg: 45, kb: 15, cd: 0.7, uses: 2, maxRange: 13, aoe: 3.2, flight: 0.6, desc: 'Lobbed, pops on landing.' },
+    eel: { name: 'Electric Eel', rarity: 'uncommon', kind: 'zap', dmg: 28, kb: 8, cd: 0.5, uses: 3, range: 12, cone: 0.85, chain: 6, stun: 0.6, desc: 'Auto-aim zap that chains and stuns.' },
+    swordfish: { name: 'Swordfish', rarity: 'rare', kind: 'melee', dmg: 60, kb: 16, cd: 0.6, uses: 2, range: 3.3, arc: 0.5, lunge: 22, desc: 'Huge lunge. Crosses gaps.' },
+    tuna: { name: 'Tuna Cannon', rarity: 'rare', kind: 'shot', dmg: 50, kb: 24, cd: 0.8, uses: 2, speed: 28, life: 0.9, rad: 0.8, desc: 'A cannonball fish. Massive knockback.' },
+    hammerhead: { name: 'Hammerhead', rarity: 'epic', kind: 'slam', dmg: 70, kb: 26, cd: 0.9, uses: 2, aoe: 2.8, reach: 1.8, heavy: true, desc: 'Ground slam. Heavy.' },
+    shark: { name: 'Shark Rocket', rarity: 'legendary', kind: 'rocket', dmg: 100, kb: 30, cd: 1, uses: 1, speed: 22, life: 1.5, rad: 0.5, aoe: 3, desc: 'One shot, one kill.' },
+    narwhal: { name: 'Golden Narwhal', rarity: 'legendary', kind: 'pierce', dmg: 100, kb: 24, cd: 1, uses: 1, speed: 70, life: 0.55, rad: 0.35, desc: 'Piercing lance. One-shot kill.' },
   };
   const BY_RARITY = {};
   for (const id in WEAPONS) {
@@ -504,6 +538,11 @@
       cfg: Object.assign({}, CFG, opts.cfg || {}),
       state: {
         phase: 'lobby', // lobby | play | over
+        mode: (opts.cfg && opts.cfg.mode) || opts.mode || CFG.mode,
+        round: 0, // rounds mode: current round number
+        roundT: 0, // time into the current round
+        breakT: 0, // rounds mode: countdown to the next round (0 = a round is running)
+        roundWinner: null,
         time: 0,
         roundLeft: (opts.roundSeconds || CFG.roundSeconds),
         roundSeconds: (opts.roundSeconds || CFG.roundSeconds),
@@ -540,7 +579,7 @@
       const p = {
         id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal',
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
-        pct: 0, armor: 0, alive: false, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
+        hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0,
         fishing: null, bubble: 0, lure: 0, gadget: null,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
@@ -586,11 +625,45 @@
       for (const r of S.rack) { r.ready = true; r.t = 0; }
       let i = 0;
       for (const p of Object.values(S.players)) {
-        Object.assign(p, { kos: 0, deaths: 0, caught: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
+        Object.assign(p, { kos: 0, deaths: 0, caught: 0, roundWins: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
         i++;
       }
-      emit('start', {});
+      S.round = 0;
+      S.roundWinner = null;
+      emit('start', { mode: S.mode });
+      if (S.mode === 'rounds') startRound();
     };
+
+    // rounds mode: wipe the pier and drop everyone back in at full health
+    function startRound() {
+      S.round++;
+      S.roundT = 0;
+      S.breakT = 0;
+      S.roundWinner = null;
+      S.projectiles = [];
+      S.traps = [];
+      S.items = [];
+      S.pelicans = [];
+      S.nextPelican = 18;
+      for (const r of S.rack) { r.ready = true; r.t = 0; }
+      for (const p of Object.values(S.players)) {
+        Object.assign(p, { alive: false, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
+      }
+      for (const p of Object.values(S.players)) spawnPlayer(p);
+      emit('round', { n: S.round });
+    }
+
+    function endRound(winner) {
+      S.breakT = C.roundBreak;
+      S.roundWinner = winner ? winner.id : null;
+      if (winner) winner.roundWins++;
+      emit('roundover', { n: S.round, winner: S.roundWinner });
+      if (winner && winner.roundWins >= C.winRounds) {
+        S.phase = 'over';
+        S.winner = winner.id;
+        emit('over', { winner: S.winner });
+      }
+    }
 
     function spawnPlayer(p) {
       const others = Object.values(S.players).filter((o) => o !== p && o.alive);
@@ -602,7 +675,7 @@
         if (d > bestD) { bestD = d; best = s; }
       }
       Object.assign(p, {
-        x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, pct: 0, alive: true, air: false, swim: false, climbT: 0,
+        x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, hp: C.maxHp, dashN: C.dashCharges, dashRT: 0, dashIF: 0, alive: true, air: false, swim: false, climbT: 0,
         invulnT: C.spawnInvuln, kbT: 0, slowT: 0, stunT: 0, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
       });
       const l = len(-p.x, -p.z) || 1;
@@ -612,7 +685,7 @@
 
     function leaderKos() {
       let m = 0;
-      for (const p of Object.values(S.players)) m = Math.max(m, p.kos);
+      for (const p of Object.values(S.players)) m = Math.max(m, S.mode === 'rounds' ? p.roundWins : p.kos);
       return m;
     }
 
@@ -622,7 +695,9 @@
       if (credit && credit !== p) credit.kos++;
       p.deaths++;
       p.alive = false;
-      p.respawnT = C.respawnSeconds;
+      p.hp = 0;
+      // rounds mode: you're out until the next round
+      p.respawnT = S.mode === 'rounds' ? Infinity : C.respawnSeconds;
       // whatever you were carrying is lost at sea
       p.gadget = null;
       p.weapon = null;
@@ -635,6 +710,7 @@
     function hit(t, attacker, dmg, dirx, dirz, kb, extra) {
       if (!t.alive || t.invulnT > 0) return false;
       if (attacker && attacker.id === t.id) return false;
+      if (t.dashIF > 0) { emit('dodge', { id: t.id, x: t.x, z: t.z }); return false; }
       if (t.fishing && t.bubble > 0) {
         t.bubble--;
         emit('bubble', { id: t.id, left: t.bubble });
@@ -648,9 +724,9 @@
       const absorbed = Math.min(t.armor, dmg);
       t.armor -= absorbed;
       dmg -= absorbed;
-      t.pct += dmg;
-      // Smash-style: the more damage you've taken, the harder you fly
-      const power = kb * C.kbScale * (1 + t.pct / C.pctScale) * (t.armor > 0 ? 0.8 : 1);
+      t.hp -= dmg;
+      // the less health you have left, the harder you fly
+      const power = kb * C.kbScale * (1 + (C.maxHp - Math.max(0, t.hp)) / C.hurtScale) * (t.armor > 0 ? 0.8 : 1);
       const l = len(dirx, dirz) || 1;
       const dx = dirx / l, dz = dirz / l;
       if (t.climbT > 0) { t.climbT = 0; t.swim = true; t.y = C.waterY; }
@@ -672,7 +748,8 @@
       if (extra && extra.slow) t.slowT = Math.max(t.slowT, extra.slow);
       if (extra && extra.stun) t.stunT = Math.max(t.stunT, extra.stun);
       if (attacker) { t.lastHitBy = attacker.id; t.lastHitT = S.time; }
-      emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z, y: t.y, pct: Math.round(t.pct) });
+      emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z, y: t.y, hp: Math.max(0, Math.round(t.hp)) });
+      if (t.hp <= 0) kill(t, 'hp');
       return true;
     }
 
@@ -689,7 +766,12 @@
     }
 
     function useWeapon(p, inp) {
-      const wid = p.weapon ? p.weapon.id : 'slap';
+      if (!p.weapon) {
+        // no slapping: you have to fish for a weapon
+        if (p.cd <= 0) { p.cd = 0.8; emit('noweapon', { id: p.id }); }
+        return;
+      }
+      const wid = p.weapon.id;
       const w = WEAPONS[wid];
       p.cd = w.cd;
       p.swingT = 0.2;
@@ -771,7 +853,7 @@
     }
 
     function giveWeapon(p, wid, uses) {
-      p.weapon = { id: wid, uses: uses != null ? uses : Math.round(WEAPONS[wid].uses * C.usesScale) };
+      p.weapon = { id: wid, uses: uses != null ? uses : Math.max(1, Math.round(WEAPONS[wid].uses * C.usesScale)) };
       p.cd = Math.min(p.cd, 0.2);
     }
 
@@ -790,7 +872,7 @@
         if (it.kind === 'rod') { if (!p.hasRod) { p.hasRod = true; take = true; } }
         else if (it.kind === 'fish') {
           if (!p.weapon || inp.use) { if (p.weapon && p.weapon.uses > 0) S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x, z: p.z, life: C.groundFishLife }); giveWeapon(p, it.weapon, it.uses); take = true; inp.use = false; }
-        } else if (it.kind === 'heal') { if (p.pct > 0) { p.pct = Math.max(0, p.pct - C.healPct); take = true; } }
+        } else if (it.kind === 'heal') { if (p.hp < C.maxHp) { p.hp = Math.min(C.maxHp, p.hp + C.healHp); take = true; } }
         else if (it.kind === 'armor') { if (p.armor < C.maxArmor) { p.armor = C.maxArmor; take = true; } }
         else if (it.kind === 'bubble') { p.bubble = 2; take = true; }
         else if (it.kind === 'lure') { p.lure = 2; take = true; }
@@ -830,6 +912,11 @@
       p.invulnT = Math.max(0, p.invulnT - dt);
       p.cd = Math.max(0, p.cd - dt);
       p.dashCd = Math.max(0, p.dashCd - dt);
+      p.dashIF = Math.max(0, p.dashIF - dt);
+      if (p.dashN < C.dashCharges) {
+        p.dashRT += dt;
+        if (p.dashRT >= C.dashRecharge) { p.dashRT = 0; p.dashN++; }
+      } else p.dashRT = 0;
       p.slowT = Math.max(0, p.slowT - dt);
       p.stunT = Math.max(0, p.stunT - dt);
       p.kbT = Math.max(0, p.kbT - dt);
@@ -841,6 +928,7 @@
 
       // in the water you can only swim back; in the air you can still attack once out of hitstun
       if (p.swim || p.air) {
+        if (p.swim && inp.dash && !stunned && p.kbT <= 0) { inp.dash = false; waterDash(p, inp); }
         inp.fish = false; inp.dash = false; inp.use = false; inp.gadget = false;
         if (p.air && inp.fire && p.cd <= 0 && p.kbT <= 0 && !stunned) useWeapon(p, inp);
         integrate(p, dt, stunned ? 0 : inp.mx, stunned ? 0 : inp.mz);
@@ -862,7 +950,7 @@
               // the old fish flops onto the pier so it isn't simply lost
               S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x - f.dx * 1.2, z: p.z - f.dz * 1.2, life: C.groundFishLife });
             }
-            giveWeapon(p, r.wid, f.perfect ? Math.round(WEAPONS[r.wid].uses * C.usesScale * C.perfectBonus) : null);
+            giveWeapon(p, r.wid, f.perfect ? Math.max(1, Math.round(WEAPONS[r.wid].uses * C.usesScale)) + C.perfectBonus : null);
             p.caught++;
             p.fishing = null;
             emit('catch', { id: p.id, w: r.wid, rarity: WEAPONS[r.wid].rarity, tier: r.tier, depth: f.depth, perfect: f.perfect });
@@ -872,7 +960,7 @@
           f.biteT = Math.max(0, f.biteT - dt);
           if (f.depth >= C.fishMinBite) {
             f.biteIn -= dt;
-            if (f.biteIn <= 0) { f.biteT = C.biteWindow; f.biteIn = rand(2, 4.5); emit('bite', { id: p.id, x: f.bx, z: f.bz }); }
+            if (f.biteIn <= 0) { f.biteT = C.biteWindow; f.biteIn = rand(C.biteEvery[0], C.biteEvery[1]); emit('bite', { id: p.id, x: f.bx, z: f.bz }); }
           }
           const prevTier = tierFor(f.depth).id;
           f.depth += dt * f.mult;
@@ -899,7 +987,7 @@
             let mult = isPierTip(p.x, p.z) ? C.pierTipMult : 1;
             if (p.lure > 0) { mult *= 2; p.lure--; }
             if (p.kos <= leaderKos() - C.catchUpGap) mult *= C.catchUpMult;
-            p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z), biteIn: C.fishMinBite + rand(0.2, 1.6), biteT: 0, perfect: false };
+            p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z), biteIn: C.fishMinBite + rand(0.3, 1.2), biteT: 0, perfect: false };
             p.ax = dir.x; p.az = dir.z;
             emit('cast', { id: p.id, x: p.fishing.bx, z: p.fishing.bz, mult });
             integrate(p, dt, 0, 0);
@@ -1041,14 +1129,28 @@
       }
     }
 
+    // Two charges, a long burst, a moment of dodge frames, and it carries you over water gaps.
     function doDash(p, inp) {
-      if (p.dashCd > 0) return;
+      if (p.dashN <= 0 || p.dashCd > 0) return;
       let dx = inp.mx, dz = inp.mz;
       if (len(dx, dz) < 0.1) { dx = p.ax; dz = p.az; }
       const l = len(dx, dz);
       p.vx = (dx / l) * C.dashSpeed; p.vz = (dz / l) * C.dashSpeed;
-      p.dashT = C.dashTime; p.dashCd = C.dashCooldown;
+      p.dashT = C.dashTime; p.dashCd = 0.12; p.dashIF = C.dashIframes;
+      p.dashN--;
       emit('dash', { id: p.id });
+    }
+
+    // Dash while swimming: hop up out of the water toward where you're steering (or the nearest boards).
+    function waterDash(p, inp) {
+      if (p.dashN <= 0) return;
+      let dx = inp.mx, dz = inp.mz;
+      if (len(dx, dz) < 0.1) { const np = nearestPlatformPoint(p.x, p.z); dx = np.x - p.x; dz = np.z - p.z; }
+      const l = len(dx, dz) || 1;
+      p.swim = false; p.air = true;
+      p.vx = (dx / l) * C.waterDash.speed; p.vz = (dz / l) * C.waterDash.speed; p.vy = C.waterDash.up;
+      p.dashN--; p.dashIF = C.dashIframes; p.kbT = 0;
+      emit('dash', { id: p.id, water: true, x: p.x, z: p.z });
     }
 
     function integrate(p, dt, mx, mz) {
@@ -1123,7 +1225,7 @@
         p.vx += (mx * speed - p.vx) * k;
         p.vz += (mz * speed - p.vz) * k;
       }
-      const free = p.kbT > 0; // knockback can carry you off the edge; walking (and dashing) cannot
+      const free = p.kbT > 0 || p.dashT > 0; // knockback and dashes can carry you off the edge; walking cannot
       const m = C.playerRadius * 0.7;
       let nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
       if (!free) {
@@ -1138,7 +1240,8 @@
       }
       p.x = nx; p.z = nz;
       if (!onPlatform(p.x, p.z, 0)) {
-        // slid off the edge: drop toward the water
+        // off the edge: a dash keeps flying until it ends, then you drop toward the water
+        if (p.dashT > 0) return;
         p.air = true; p.vy = 0; p.y = 0;
         p.fishing = null;
         emit('fall', { id: p.id });
@@ -1237,13 +1340,32 @@
       if (S.phase === 'lobby') return;
       if (S.phase === 'over') { S.time += dt; return; }
       S.time += dt;
-      S.roundLeft -= dt;
+      const rounds = S.mode === 'rounds';
+      if (rounds && S.breakT > 0) {
+        // between rounds: the survivor gets a short victory lap, then everyone drops back in
+        S.breakT -= dt;
+        if (S.breakT <= 0) { startRound(); return; }
+      }
+      if (!rounds) S.roundLeft -= dt;
+      else if (S.breakT <= 0) S.roundT += dt;
       for (const p of Object.values(S.players)) if (p.bot) g.setInput(p.id, botThink(g, p, dt));
       for (const p of Object.values(S.players)) stepPlayer(p, g.inputs[p.id], dt);
       separatePlayers();
       stepProjectiles(dt);
       stepTraps(dt);
       stepWorld(dt);
+      if (rounds) {
+        if (S.breakT > 0) return;
+        const all = Object.values(S.players);
+        const alive = all.filter((p) => p.alive);
+        if (all.length >= 2 && alive.length <= 1) endRound(alive[0] || null);
+        else if (S.roundT >= C.roundCap && all.length >= 2) {
+          // too long: whoever is healthiest takes it
+          alive.sort((a, b) => b.hp - a.hp);
+          endRound(alive[0]);
+        }
+        return;
+      }
       if (S.roundLeft <= 0) {
         const ranked = Object.values(S.players).sort((a, b) => b.kos - a.kos || a.deaths - b.deaths);
         const top = ranked[0];
@@ -1264,12 +1386,13 @@
       const r2 = (v) => Math.round(v * 100) / 100;
       return {
         phase: S.phase, time: r2(S.time), roundLeft: r2(S.roundLeft), roundSeconds: S.roundSeconds, overtime: !!S.overtime, winner: S.winner,
+        mode: S.mode, round: S.round, roundT: r2(S.roundT), breakT: r2(S.breakT), roundWinner: S.roundWinner, winRounds: C.winRounds, roundCap: C.roundCap,
         players: Object.values(S.players).map((p) => ({
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
-          pct: Math.round(p.pct), armor: Math.round(p.armor), alive: p.alive, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: r2(p.respawnT), invulnT: r2(p.invulnT),
+          hp: Math.max(0, Math.round(p.hp)), armor: Math.round(p.armor), alive: p.alive, out: p.respawnT === Infinity, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: p.respawnT === Infinity ? -1 : r2(p.respawnT), dashN: p.dashN, dashRT: r2(p.dashRT), dashIF: r2(p.dashIF), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
-          bubble: p.bubble, lure: p.lure, gadget: p.gadget, kos: p.kos, deaths: p.deaths, caught: p.caught,
+          bubble: p.bubble, lure: p.lure, gadget: p.gadget, roundWins: p.roundWins, kos: p.kos, deaths: p.deaths, caught: p.caught,
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
         traps: S.traps.map((t) => ({ id: t.id, kind: t.kind, owner: t.owner, x: r2(t.x), z: r2(t.z), life: r2(t.life), armed: !(t.arm > 0), rot: t.rot ? r2(t.rot) : 0 })),
@@ -1322,6 +1445,8 @@
       const t = p.swim ? nearestPlatformPoint(p.x, p.z) : { x: 0, z: 0 };
       const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz) || 1;
       out.mx = dx / d; out.mz = dz / d;
+      // hop out of the water once the boards are in reach
+      if (p.swim && d < 4.5 && p.dashN > 0 && Math.random() < 0.15) out.dash = true;
       return out;
     }
 
@@ -1384,7 +1509,7 @@
       if (threat) {
         if (f.depth >= g.cfg.fishMinBite) out.fish = true;
         else if (ed < 4) out.dash = true; // bail out
-      } else if (f.depth >= b.target && (f.biteT > 0 || f.depth >= b.target + 4 || p.difficulty === 'easy')) out.fish = true;
+      } else if (f.depth >= b.target && (f.biteT > 0 || f.depth >= b.target + 1.5 || p.difficulty === 'easy')) out.fish = true;
       return out;
     }
 
@@ -1394,7 +1519,7 @@
       if (it.y > 0.5) continue;
       const d = len(it.x - p.x, it.z - p.z);
       let v = 0;
-      if (it.kind === 'heal') v = p.pct > 40 ? 10 : 0;
+      if (it.kind === 'heal') v = p.hp < 60 ? 10 : 0;
       else if (it.kind === 'armor') v = p.armor < 25 ? 8 : 0;
       else if (it.kind === 'cooler') v = 12;
       else if (it.kind === 'tackle') v = p.gadget ? 3 : 7;
@@ -1434,15 +1559,20 @@
       }
       const range = melee ? (w.range || w.reach + w.aoe) + 0.3 : w.kind === 'zap' ? w.range : w.kind === 'lob' ? w.maxRange : sp * (w.life || 1);
       if (ed < range && Math.random() < skill.fireRate) out.fire = true;
-      if (melee && ed < 5 && ed > 2.2 && p.dashCd <= 0 && Math.random() < 0.03) out.dash = true;
+      if (melee && ed < 5 && ed > 2.2 && p.dashN > 0 && Math.random() < 0.03) out.dash = true;
+      // sidestep incoming fire
+      else if (enemyArmed && ed < 9 && p.dashN > 1 && enemy.swingT > 0 && Math.random() < 0.3 * skill.fireRate) {
+        out.mx = (-tz / tl) * b.strafe; out.mz = (tx / tl) * b.strafe; out.dash = true;
+      }
       return out;
     }
 
-    // --- unarmed with a nearby armed enemy: slap if very close, else run
-    if (enemy && !p.weapon && ed < 2.2) {
+    // --- unarmed with an armed enemy close by: dash away (there's no slapping)
+    if (enemy && !p.weapon && enemyArmed && ed < 4.5 && p.dashN > 0 && Math.random() < 0.08) {
       const tx = enemy.x - p.x, tz = enemy.z - p.z, tl = len(tx, tz) || 1;
-      out.ax = tx / tl; out.az = tz / tl; out.fire = true;
-      if (enemyArmed && p.dashCd <= 0 && Math.random() < 0.05) { out.mx = -tx / tl; out.mz = -tz / tl; out.dash = true; }
+      const home = navTarget(p, 0, 0), hx = home.x - p.x, hz = home.z - p.z, hl = len(hx, hz) || 1;
+      out.mx = -tx / tl * 0.6 + hx / hl * 0.4; out.mz = -tz / tl * 0.6 + hz / hl * 0.4;
+      out.dash = true;
       return out;
     }
 
@@ -1462,7 +1592,7 @@
       b.spot = best;
       const greedy = !enemy || !enemyArmed ? 1 : 0.5;
       const roll = Math.random() * skill.greed * greedy;
-      b.target = roll > 0.85 ? rand(20, 24) : roll > 0.55 ? rand(12, 16) : roll > 0.25 ? rand(6, 9) : rand(2.6, 4.5);
+      b.target = roll > 0.85 ? rand(7, 8.5) : roll > 0.55 ? rand(4, 5.5) : roll > 0.25 ? rand(2, 3) : rand(0.6, 1.4);
     }
     if (moveTo(b.spot.x, b.spot.z, 0.6)) {
       const dir = waterDirection(p.x, p.z, p.x, p.z) || { x: Math.sign(p.x), z: 0 };
@@ -2148,14 +2278,34 @@ const SFX = {
   boom: () => { noise(0.4, 0.35, 600); tone(90, 0.3, 'sine', 0.2, 0.4); },
   splash: () => noise(0.5, 0.25, 900),
   cast: () => tone(900, 0.25, 'sine', 0.06, 0.3),
-  catch: (r) => { const base = 520 + RARITIES.indexOf(r) * 90; tone(base, 0.12, 'triangle', 0.1); setTimeout(() => tone(base * 1.5, 0.2, 'triangle', 0.1), 110); if (r === 'legendary' || r === 'epic') setTimeout(() => tone(base * 2, 0.3, 'triangle', 0.1), 230); },
   snap: () => tone(1200, 0.12, 'sawtooth', 0.06, 0.3),
   zap: () => { tone(1400, 0.15, 'sawtooth', 0.05, 0.2); noise(0.1, 0.1, 5000); },
   pickup: () => tone(780, 0.1, 'triangle', 0.08, 1.5),
   ko: () => { tone(300, 0.3, 'square', 0.08, 0.3); },
   pelican: () => { tone(500, 0.1, 'square', 0.04, 1.4); setTimeout(() => tone(450, 0.12, 'square', 0.04, 1.3), 140); },
   tier: () => tone(340, 0.18, 'sine', 0.07, 0.7),
+  dash: (water) => { noise(0.14, 0.12, water ? 900 : 2600); tone(water ? 260 : 420, 0.12, 'sine', 0.05, 2.2); },
+  dodge: () => { tone(1200, 0.08, 'sine', 0.06, 1.6); setTimeout(() => tone(1600, 0.08, 'sine', 0.05, 1.4), 60); },
+  nope: () => tone(160, 0.12, 'square', 0.04, 0.8),
+  round: () => { [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'triangle', 0.08), i * 110)); },
+  win: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle', 0.09), i * 120)); },
+  gadget: () => { tone(660, 0.07, 'square', 0.05, 1.5); setTimeout(() => tone(990, 0.1, 'square', 0.05, 1.3), 70); noise(0.1, 0.08, 4000); },
+  // a different little fanfare per rarity: rarer fish climb higher and sparkle longer
+  catch: (r) => {
+    const i = RARITIES.indexOf(r), base = 440 + i * 70;
+    const notes = [[1, 1.25], [1, 1.25, 1.5], [1, 1.26, 1.5, 2], [1, 1.19, 1.5, 1.78, 2], [1, 1.26, 1.5, 2, 2.52, 3]][Math.max(0, i)];
+    notes.forEach((m, k) => setTimeout(() => tone(base * m, 0.14 + k * 0.02, i >= 3 ? 'square' : 'triangle', 0.07), k * 85));
+    if (i >= 3) setTimeout(() => noise(0.4, 0.06, 7000), notes.length * 85);
+  },
 };
+let lastBeat = 0;
+function heartbeat(hp) {
+  const now = performance.now(), gap = 380 + hp * 18;
+  if (now - lastBeat < gap) return;
+  lastBeat = now;
+  tone(70, 0.09, 'sine', 0.16, 0.8);
+  setTimeout(() => tone(60, 0.11, 'sine', 0.13, 0.8), 140);
+}
 
 // ------------------------------------------------------------------ input
 const keys = {};
@@ -2281,7 +2431,7 @@ let source = null; // { tick(dt), myId, prev, curr, alpha, events[], sendInput(i
 let playing = false, paused = false;
 
 function localSource(opts) {
-  const g = Sim.createGame({ roundSeconds: opts.round });
+  const g = Sim.createGame(opts.round === 'rounds' ? { mode: 'rounds' } : { mode: 'timed', roundSeconds: +opts.round });
   g.addPlayer('me', opts.name, false);
   const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel'];
   for (let i = 0; i < opts.bots; i++) g.addPlayer('bot' + i, names[i % names.length], true, opts.difficulty);
@@ -2513,8 +2663,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
       nm.textContent = p.name;
       nm.style.color = p.color;
       const pc = v.tag.querySelector('.pc');
-      pc.textContent = p.pct + '%' + (p.armor > 0 ? ' 🦀' : '');
-      pc.style.color = pctColor(p.pct);
+      pc.innerHTML = `<span class="hpbar${p.hp <= 30 ? ' low' : ''}"><i style="width:${p.hp}%;background:${hpColor(p.hp)}"></i>${p.armor > 0 ? `<b style="width:${(p.armor / CFG.maxArmor) * 100}%"></b>` : ''}</span>`;
       const fl = v.tag.querySelector('.fishing');
       if (p.fishing) {
         const tier = Sim.tierFor(p.fishing.depth);
@@ -2529,6 +2678,9 @@ function syncPlayers(s, prev, alpha, t, dt) {
   }
 }
 
+function hpColor(hp) {
+  return hp > 60 ? '#5ee07a' : hp > 30 ? '#ffd23f' : '#ff4d4d';
+}
 function pctColor(pct) {
   const k = Math.min(1, pct / 160);
   const c = new THREE.Color('#ffffff').lerp(new THREE.Color('#ffd23f'), Math.min(1, k * 2)).lerp(new THREE.Color('#ff3b3b'), Math.max(0, k * 2 - 1));
@@ -2683,18 +2835,19 @@ function feed(html) {
   while ($('feed').children.length > 5) $('feed').lastChild.remove();
   setTimeout(() => d.remove(), 5000);
 }
-function floatText(x, y, z, text, color) {
+function floatText(x, y, z, text, color, opt) {
+  opt = opt || {};
   const el = document.createElement('div');
-  el.className = 'float';
+  el.className = 'float' + (opt.cls ? ' ' + opt.cls : '');
   el.textContent = text;
   el.style.color = color;
   tagsEl.appendChild(el);
   const start = performance.now();
-  const p = new THREE.Vector3(x + (Math.random() - 0.5) * 0.6, y, z);
+  const p = new THREE.Vector3(x + (opt.exact ? 0 : (Math.random() - 0.5) * 0.6), y, z);
   (function anim() {
-    const k = (performance.now() - start) / 800;
+    const k = (performance.now() - start) / (opt.dur || 800);
     if (k >= 1) { el.remove(); return; }
-    const v = p.clone(); v.y += k * 1.5;
+    const v = p.clone(); v.y += k * (opt.rise != null ? opt.rise : 1.5);
     v.project(camera);
     el.style.left = ((v.x + 1) / 2) * window.innerWidth + 'px';
     el.style.top = ((1 - v.y) / 2) * window.innerHeight + 'px';
@@ -2730,25 +2883,45 @@ function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) +
 
 let lastScoreKey = '';
 function updateHud(s, me) {
-  $('timer').textContent = s.overtime && s.roundLeft <= 0 ? 'OVERTIME' : fmtTime(s.roundLeft);
-  $('timer').classList.toggle('ot', s.roundLeft < 30);
-  const sorted = [...s.players].sort((a, b) => b.kos - a.kos);
-  const key = sorted.map((p) => p.id + p.kos).join();
+  const rounds = s.mode === 'rounds';
+  if (rounds) {
+    $('timer').textContent = s.breakT > 0 ? 'Next round…' : `Round ${s.round}`;
+    $('timer').classList.toggle('ot', s.breakT <= 0 && s.roundCap - s.roundT < 15);
+  } else {
+    $('timer').textContent = s.overtime && s.roundLeft <= 0 ? 'OVERTIME' : fmtTime(s.roundLeft);
+    $('timer').classList.toggle('ot', s.roundLeft < 30);
+  }
+  const score = (p) => (rounds ? p.roundWins : p.kos);
+  const sorted = [...s.players].sort((a, b) => score(b) - score(a));
+  const key = sorted.map((p) => p.id + score(p) + (rounds && p.out ? 'x' : '')).join();
   if (key !== lastScoreKey) {
     lastScoreKey = key;
     document.querySelectorAll('#topbar .score').forEach((e) => e.remove());
     for (const p of sorted) {
       const d = document.createElement('div');
-      d.className = 'score' + (me && p.id === me.id ? ' me' : '');
-      d.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)} <b>${p.kos}</b>`;
+      d.className = 'score' + (me && p.id === me.id ? ' me' : '') + (rounds && p.out ? ' out' : '');
+      d.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)} <b>${rounds ? '🏆'.repeat(p.roundWins) || '0' : p.kos}</b>`;
       $('topbar').appendChild(d);
     }
   }
   if (!me) return;
   if (touchState.on) $('tFish').textContent = me.fishing ? (me.fishing.depth < CFG.fishMinBite ? 'CANCEL' : 'REEL') : 'CAST';
-  $('pct').textContent = me.alive ? me.pct + '%' : 'KO';
-  $('pct').style.color = pctColor(me.pct);
-  $('pctsub').textContent = me.alive ? (me.swim ? 'Swim back to the pier!' : 'damage') : 'back in ' + Math.ceil(me.respawnT);
+  $('pct').textContent = me.alive ? me.hp : 'KO';
+  $('pct').style.color = me.alive ? hpColor(me.hp) : '#ff4d4d';
+  $('hpbar').style.width = (me.alive ? me.hp : 0) + '%';
+  $('hpbar').style.background = hpColor(me.hp);
+  $('vitals').classList.toggle('low', me.alive && me.hp <= 30);
+  $('pctsub').textContent = me.alive ? (me.swim ? 'Swim back! Dash to hop out' : 'health') : me.out ? 'Out this round. Watch and learn…' : 'back in ' + Math.ceil(Math.max(0, me.respawnT));
+  const pips = $('dashpips');
+  pips.innerHTML = '';
+  for (let i = 0; i < CFG.dashCharges; i++) {
+    const el = document.createElement('i');
+    const fill = i < me.dashN ? 1 : i === me.dashN ? me.dashRT / CFG.dashRecharge : 0;
+    el.style.setProperty('--f', fill);
+    if (fill >= 1) el.className = 'full';
+    pips.appendChild(el);
+  }
+  if (me.alive && me.hp <= 30) heartbeat(me.hp);
   $('armorbar').style.width = (me.armor / CFG.maxArmor) * 100 + '%';
   $('armortxt').textContent = me.armor > 0 ? '🦀 armor ' + me.armor : 'no armor';
   const buffs = [];
@@ -2769,9 +2942,9 @@ function updateHud(s, me) {
     if (ammo.children.length !== w.uses) { ammo.innerHTML = ''; for (let i = 0; i < w.uses; i++) ammo.appendChild(document.createElement('i')); }
     [...ammo.children].forEach((c, i) => c.classList.toggle('used', i >= me.weapon.uses));
   } else {
-    $('wname').textContent = 'Slap';
+    $('wname').textContent = 'No fish';
     $('wname').style.color = '#fff';
-    $('wdesc').textContent = me.hasRod ? 'Out of fish! Cast off any edge.' : 'Grab a rod from the rack in the middle.';
+    $('wdesc').textContent = me.hasRod ? 'Cast off any edge. Half a second gets you a fish.' : 'Grab a rod from the rack in the middle.';
     wEl.style.borderColor = 'transparent';
     $('ammo').innerHTML = '';
   }
@@ -2811,12 +2984,12 @@ function updateHud(s, me) {
   if (me.fishing) {
     fp.classList.remove('hidden');
     const d = me.fishing.depth;
-    $('needle').style.top = Math.min(100, (d / 26) * 100) + '%';
+    $('needle').style.top = Math.min(100, (d / (CFG.autoReel * 0.75)) * 100) + '%';
     const tier = Sim.tierFor(d);
     const total = tier.w.reduce((a, b) => a + b, 0);
     $('odds').innerHTML = tier.w.map((w, i) => (w ? `<i style="width:${(w / total) * 100}%;background:${RARITY_COLORS[RARITIES[i]]}"></i>` : '')).join('');
     $('oddsTxt').textContent = d < CFG.fishMinBite ? 'Waiting for a bite…' : tier.w.map((w, i) => (w ? `${RARITIES[i][0].toUpperCase()}${Math.round((w / total) * 100)}%` : '')).filter(Boolean).join(' ');
-    $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'R cancels · Space bails' : me.fishing.biteT > 0 ? 'BITE! Reel now!' : 'R to reel in';
+    $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'Sinking… Space bails' : me.fishing.biteT > 0 ? 'BITE! Reel now!' : 'R to reel in';
     $('reelhint').style.color = me.fishing.biteT > 0 ? '#ffd23f' : '';
     fp.querySelector('h3').textContent = me.fishing.mult > 1.01 ? `Line in ×${me.fishing.mult.toFixed(2)}` : 'Line in the water';
   } else fp.classList.add('hidden');
@@ -2877,7 +3050,11 @@ function handleEvents(s, me) {
       case 'boom': boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
       case 'zap': zapFx(e.pts); SFX.zap(); break;
       case 'gadget':
-        if (e.id === myId) { SFX.pickup(); toast(`${GADGET_ICON[e.g]} ${GADGETS[e.g].name} x${e.n}<small>Bycatch! Press Q to use. ${GADGETS[e.g].desc}</small>`, GADGET_COLOR[e.g], 2); }
+        if (e.id === myId) {
+          SFX.gadget();
+          toast(`${GADGET_ICON[e.g]} ${GADGETS[e.g].name} x${e.n}<small>New gadget! Press ${touchState.on ? 'the green button' : 'Q'} to use it</small>`, GADGET_COLOR[e.g], 1.8);
+          for (const gb of [$('gadget'), $('tGadget')]) { gb.classList.remove('pop'); void gb.offsetWidth; gb.classList.add('pop'); }
+        }
         break;
       case 'usegadget': SFX.cast(); if (e.g === 'flounder' || e.g === 'jelly' || e.g === 'clam' || e.g === 'grouper') burst(e.x, 0.5, e.z, GADGET_COLOR[e.g], 6, 3, 0.12, 0.4); break;
       case 'scatter': burst(e.x, 0.4, e.z, '#5a2a80', 10, 5, 0.12, 0.5); SFX.slap(); break;
@@ -2894,9 +3071,9 @@ function handleEvents(s, me) {
         break;
       }
       case 'ko': {
-        if (e.by) feed(`${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥`);
+        if (e.by) feed(e.cause === 'blast' ? `${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥` : `${nameOf(s, e.by)} filleted ${nameOf(s, e.id)} 🐟`);
         else feed(`${nameOf(s, e.id)} drifted out to sea`);
-        if (e.id === myId) toast('KNOCKED OUT', '#ff5a5f', 2);
+        if (e.id === myId) toast(s.mode === 'rounds' ? 'YOU\'RE OUT<small>back next round</small>' : 'KNOCKED OUT', '#ff5a5f', 2);
         else if (e.by === myId) toast('KO! 🐟', '#ffd23f', 1.4);
         const p = s.players.find((q) => q.id === e.id);
         boomFx(e.x, e.z, 6);
@@ -2919,8 +3096,13 @@ function handleEvents(s, me) {
           burst(from.x, WATER_Y + 0.2, from.z, '#ffffff', 10, 4, 0.14, 0.5);
           effects.push({ m: fm, life: 0.45, max: 0.45, kind: 'arc', from, target: () => new THREE.Vector3(pv.x, 1.2, pv.z) });
         }
+        if (p && e.rarity !== 'common') {
+          const label = { uncommon: 'NICE', rare: 'RARE!', epic: 'EPIC!', legendary: 'LEGENDARY!' }[e.rarity];
+          floatText(p.x, 3.1, p.z, label, RARITY_COLORS[e.rarity], { cls: 'rarity ' + e.rarity, dur: 1300, rise: 0.8, exact: true });
+          if (e.rarity === 'epic' || e.rarity === 'legendary') { burst(p.x, 2.2, p.z, '#ffd23f', 24, 7, 0.14, 1, 4); ringFx(p.x, p.z, 4, RARITY_COLORS[e.rarity], 0.2); }
+        }
         if (e.id === myId) {
-          toast(`${e.perfect ? 'PERFECT! ' : ''}${w.name}<small style="color:${RARITY_COLORS[e.rarity]}">${e.rarity.toUpperCase()} · ${w.desc}${e.perfect ? ' · +25% ammo' : ''}</small>`, RARITY_COLORS[e.rarity], 2.4);
+          toast(`${e.perfect ? 'PERFECT! ' : ''}${w.name}<small style="color:${RARITY_COLORS[e.rarity]}">${e.rarity.toUpperCase()} · ${w.desc} · ${w.uses + (e.perfect ? CFG.perfectBonus : 0)} use${w.uses + (e.perfect ? CFG.perfectBonus : 0) > 1 ? 's' : ''}</small>`, RARITY_COLORS[e.rarity], 1.8);
           SFX.catch(e.rarity);
         } else if (e.rarity === 'epic' || e.rarity === 'legendary') feed(`${nameOf(s, e.id)} reeled in a <b style="color:${RARITY_COLORS[e.rarity]}">${w.name}</b>!`);
         break;
@@ -2944,9 +3126,23 @@ function handleEvents(s, me) {
       case 'land': burst(e.x, 0.2, e.z, e.player ? '#ffffff' : '#f5d78e', 6, 3, 0.12, 0.4); break;
       case 'noedge': if (e.id === myId) toast('Get to the edge of the pier to cast', '#fff', 1.2); break;
       case 'norod': if (e.id === myId) toast('No rod! Grab one in the middle.', '#fff', 1.2); break;
-      case 'dash': { const p = s.players.find((q) => q.id === e.id); if (p) burst(p.x, 0.3, p.z, '#ffffff', 4, 2, 0.12, 0.3, 2); break; }
+      case 'dash': {
+        const p = s.players.find((q) => q.id === e.id);
+        if (p) burst(p.x, e.water ? WATER_Y + 0.3 : 0.3, p.z, e.water ? '#bdf4ff' : '#ffffff', e.water ? 12 : 6, e.water ? 5 : 3, 0.14, 0.35, 2);
+        if (e.id === myId) SFX.dash(e.water);
+        break;
+      }
+      case 'dodge': { floatText(e.x, 2.3, e.z, 'DODGE', '#9fe8ff', { cls: 'small' }); if (e.id === myId) SFX.dodge(); break; }
+      case 'noweapon': if (e.id === myId) { toast('<small>no slapping! catch a fish first</small>', '#fff', 1); SFX.nope(); } break;
+      case 'round': toast(`ROUND ${e.n}<small>last fisher standing wins</small>`, '#ffd23f', 1.6); SFX.round(); break;
+      case 'roundover': {
+        const w = e.winner && s.players.find((q) => q.id === e.winner);
+        if (w && w.id === myId) { toast('YOU TAKE THE ROUND! 🏆', '#ffd23f', 2.5); SFX.win(); }
+        else toast(w ? `<span style="color:${w.color}">${escapeHtml(w.name)}</span> takes the round` : 'Nobody survived!', '#fff', 2.5);
+        break;
+      }
       case 'overtime': toast('OVERTIME<small>next KO wins</small>', '#ffd23f', 2.5); break;
-      case 'start': toast('GO FISH!', '#ffd23f', 1.5); break;
+      case 'start': if (e.mode !== 'rounds') toast('GO FISH!', '#ffd23f', 1.5); break;
       case 'spawn': if (e.id === myId) { const p = s.players.find((q) => q.id === e.id); if (p) cam.yaw = Math.atan2(p.ax, p.az); cam.pitch = 0.32; } break;
     }
   }
@@ -3012,7 +3208,10 @@ function frame(now) {
       updateHud(s, me);
       drawMinimap(s, me);
       const mv = me && views.players.get(me.id);
-      updateCamera(me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null, dt, t);
+      // out of the round: follow whoever is still fighting
+      let follow = me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null;
+      if (!follow && me && me.out) { const alive = s.players.find((q) => q.alive); const av = alive && views.players.get(alive.id); if (av) follow = { x: av.x, z: av.z, y: av.y }; }
+      updateCamera(follow, dt, t);
       if (s.phase === 'over' && !$('results').classList.contains('shown')) showResults(s);
       if (s.phase === 'play' && $('results').classList.contains('shown')) { $('results').classList.remove('shown'); $('results').classList.add('hidden'); }
     }
@@ -3068,7 +3267,7 @@ $('btnSolo').onclick = () => {
   ac();
   saveName();
   clearViews();
-  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: +getRound() }));
+  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: getRound() }));
 };
 $('btnOnline').onclick = () => {
   saveName();
@@ -3106,7 +3305,7 @@ $('btnConnect').onclick = () => {
     if (playing && source === netSrc) { playing = false; hud.classList.add('hidden'); $('online').classList.remove('hidden'); }
   });
 };
-$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(+getRoundNet(), +getBotsNet()); };
+$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet()); };
 
 function togglePause() {
   if (!playing) return;
@@ -3128,10 +3327,12 @@ function quitToMenu() {
 }
 function showResults(s) {
   $('results').classList.add('shown');
-  const ranked = [...s.players].sort((a, b) => b.kos - a.kos || a.deaths - b.deaths);
-  const win = ranked[0];
+  const rounds = s.mode === 'rounds';
+  const ranked = [...s.players].sort((a, b) => (rounds ? b.roundWins - a.roundWins : 0) || b.kos - a.kos || a.deaths - b.deaths);
+  const win = (s.winner && s.players.find((p) => p.id === s.winner)) || ranked[0];
   $('resTitle').innerHTML = win && win.id === source.myId ? 'YOU <span>WIN!</span>' : `${escapeHtml(win ? win.name : '?')} <span>WINS</span>`;
-  $('resBody').innerHTML = ranked.map((p) => `<tr><td><b style="color:${p.color}">${escapeHtml(p.name)}</b></td><td>${p.kos}</td><td>${p.deaths}</td><td>${p.caught}</td></tr>`).join('');
+  $('resHead').innerHTML = `<tr><th>Angler</th>${rounds ? '<th>Rounds</th>' : ''}<th>KOs</th><th>Deaths</th><th>Fish caught</th></tr>`;
+  $('resBody').innerHTML = ranked.map((p) => `<tr><td><b style="color:${p.color}">${escapeHtml(p.name)}</b></td>${rounds ? `<td>${p.roundWins}</td>` : ''}<td>${p.kos}</td><td>${p.deaths}</td><td>${p.caught}</td></tr>`).join('');
   setTimeout(() => { if (playing) $('results').classList.remove('hidden'); }, 1500);
 }
 $('btnAgain').onclick = () => {

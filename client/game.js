@@ -667,14 +667,34 @@ const SFX = {
   boom: () => { noise(0.4, 0.35, 600); tone(90, 0.3, 'sine', 0.2, 0.4); },
   splash: () => noise(0.5, 0.25, 900),
   cast: () => tone(900, 0.25, 'sine', 0.06, 0.3),
-  catch: (r) => { const base = 520 + RARITIES.indexOf(r) * 90; tone(base, 0.12, 'triangle', 0.1); setTimeout(() => tone(base * 1.5, 0.2, 'triangle', 0.1), 110); if (r === 'legendary' || r === 'epic') setTimeout(() => tone(base * 2, 0.3, 'triangle', 0.1), 230); },
   snap: () => tone(1200, 0.12, 'sawtooth', 0.06, 0.3),
   zap: () => { tone(1400, 0.15, 'sawtooth', 0.05, 0.2); noise(0.1, 0.1, 5000); },
   pickup: () => tone(780, 0.1, 'triangle', 0.08, 1.5),
   ko: () => { tone(300, 0.3, 'square', 0.08, 0.3); },
   pelican: () => { tone(500, 0.1, 'square', 0.04, 1.4); setTimeout(() => tone(450, 0.12, 'square', 0.04, 1.3), 140); },
   tier: () => tone(340, 0.18, 'sine', 0.07, 0.7),
+  dash: (water) => { noise(0.14, 0.12, water ? 900 : 2600); tone(water ? 260 : 420, 0.12, 'sine', 0.05, 2.2); },
+  dodge: () => { tone(1200, 0.08, 'sine', 0.06, 1.6); setTimeout(() => tone(1600, 0.08, 'sine', 0.05, 1.4), 60); },
+  nope: () => tone(160, 0.12, 'square', 0.04, 0.8),
+  round: () => { [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'triangle', 0.08), i * 110)); },
+  win: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle', 0.09), i * 120)); },
+  gadget: () => { tone(660, 0.07, 'square', 0.05, 1.5); setTimeout(() => tone(990, 0.1, 'square', 0.05, 1.3), 70); noise(0.1, 0.08, 4000); },
+  // a different little fanfare per rarity: rarer fish climb higher and sparkle longer
+  catch: (r) => {
+    const i = RARITIES.indexOf(r), base = 440 + i * 70;
+    const notes = [[1, 1.25], [1, 1.25, 1.5], [1, 1.26, 1.5, 2], [1, 1.19, 1.5, 1.78, 2], [1, 1.26, 1.5, 2, 2.52, 3]][Math.max(0, i)];
+    notes.forEach((m, k) => setTimeout(() => tone(base * m, 0.14 + k * 0.02, i >= 3 ? 'square' : 'triangle', 0.07), k * 85));
+    if (i >= 3) setTimeout(() => noise(0.4, 0.06, 7000), notes.length * 85);
+  },
 };
+let lastBeat = 0;
+function heartbeat(hp) {
+  const now = performance.now(), gap = 380 + hp * 18;
+  if (now - lastBeat < gap) return;
+  lastBeat = now;
+  tone(70, 0.09, 'sine', 0.16, 0.8);
+  setTimeout(() => tone(60, 0.11, 'sine', 0.13, 0.8), 140);
+}
 
 // ------------------------------------------------------------------ input
 const keys = {};
@@ -800,7 +820,7 @@ let source = null; // { tick(dt), myId, prev, curr, alpha, events[], sendInput(i
 let playing = false, paused = false;
 
 function localSource(opts) {
-  const g = Sim.createGame({ roundSeconds: opts.round });
+  const g = Sim.createGame(opts.round === 'rounds' ? { mode: 'rounds' } : { mode: 'timed', roundSeconds: +opts.round });
   g.addPlayer('me', opts.name, false);
   const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel'];
   for (let i = 0; i < opts.bots; i++) g.addPlayer('bot' + i, names[i % names.length], true, opts.difficulty);
@@ -1032,8 +1052,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
       nm.textContent = p.name;
       nm.style.color = p.color;
       const pc = v.tag.querySelector('.pc');
-      pc.textContent = p.pct + '%' + (p.armor > 0 ? ' 🦀' : '');
-      pc.style.color = pctColor(p.pct);
+      pc.innerHTML = `<span class="hpbar${p.hp <= 30 ? ' low' : ''}"><i style="width:${p.hp}%;background:${hpColor(p.hp)}"></i>${p.armor > 0 ? `<b style="width:${(p.armor / CFG.maxArmor) * 100}%"></b>` : ''}</span>`;
       const fl = v.tag.querySelector('.fishing');
       if (p.fishing) {
         const tier = Sim.tierFor(p.fishing.depth);
@@ -1048,6 +1067,9 @@ function syncPlayers(s, prev, alpha, t, dt) {
   }
 }
 
+function hpColor(hp) {
+  return hp > 60 ? '#5ee07a' : hp > 30 ? '#ffd23f' : '#ff4d4d';
+}
 function pctColor(pct) {
   const k = Math.min(1, pct / 160);
   const c = new THREE.Color('#ffffff').lerp(new THREE.Color('#ffd23f'), Math.min(1, k * 2)).lerp(new THREE.Color('#ff3b3b'), Math.max(0, k * 2 - 1));
@@ -1202,18 +1224,19 @@ function feed(html) {
   while ($('feed').children.length > 5) $('feed').lastChild.remove();
   setTimeout(() => d.remove(), 5000);
 }
-function floatText(x, y, z, text, color) {
+function floatText(x, y, z, text, color, opt) {
+  opt = opt || {};
   const el = document.createElement('div');
-  el.className = 'float';
+  el.className = 'float' + (opt.cls ? ' ' + opt.cls : '');
   el.textContent = text;
   el.style.color = color;
   tagsEl.appendChild(el);
   const start = performance.now();
-  const p = new THREE.Vector3(x + (Math.random() - 0.5) * 0.6, y, z);
+  const p = new THREE.Vector3(x + (opt.exact ? 0 : (Math.random() - 0.5) * 0.6), y, z);
   (function anim() {
-    const k = (performance.now() - start) / 800;
+    const k = (performance.now() - start) / (opt.dur || 800);
     if (k >= 1) { el.remove(); return; }
-    const v = p.clone(); v.y += k * 1.5;
+    const v = p.clone(); v.y += k * (opt.rise != null ? opt.rise : 1.5);
     v.project(camera);
     el.style.left = ((v.x + 1) / 2) * window.innerWidth + 'px';
     el.style.top = ((1 - v.y) / 2) * window.innerHeight + 'px';
@@ -1249,25 +1272,45 @@ function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) +
 
 let lastScoreKey = '';
 function updateHud(s, me) {
-  $('timer').textContent = s.overtime && s.roundLeft <= 0 ? 'OVERTIME' : fmtTime(s.roundLeft);
-  $('timer').classList.toggle('ot', s.roundLeft < 30);
-  const sorted = [...s.players].sort((a, b) => b.kos - a.kos);
-  const key = sorted.map((p) => p.id + p.kos).join();
+  const rounds = s.mode === 'rounds';
+  if (rounds) {
+    $('timer').textContent = s.breakT > 0 ? 'Next round…' : `Round ${s.round}`;
+    $('timer').classList.toggle('ot', s.breakT <= 0 && s.roundCap - s.roundT < 15);
+  } else {
+    $('timer').textContent = s.overtime && s.roundLeft <= 0 ? 'OVERTIME' : fmtTime(s.roundLeft);
+    $('timer').classList.toggle('ot', s.roundLeft < 30);
+  }
+  const score = (p) => (rounds ? p.roundWins : p.kos);
+  const sorted = [...s.players].sort((a, b) => score(b) - score(a));
+  const key = sorted.map((p) => p.id + score(p) + (rounds && p.out ? 'x' : '')).join();
   if (key !== lastScoreKey) {
     lastScoreKey = key;
     document.querySelectorAll('#topbar .score').forEach((e) => e.remove());
     for (const p of sorted) {
       const d = document.createElement('div');
-      d.className = 'score' + (me && p.id === me.id ? ' me' : '');
-      d.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)} <b>${p.kos}</b>`;
+      d.className = 'score' + (me && p.id === me.id ? ' me' : '') + (rounds && p.out ? ' out' : '');
+      d.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)} <b>${rounds ? '🏆'.repeat(p.roundWins) || '0' : p.kos}</b>`;
       $('topbar').appendChild(d);
     }
   }
   if (!me) return;
   if (touchState.on) $('tFish').textContent = me.fishing ? (me.fishing.depth < CFG.fishMinBite ? 'CANCEL' : 'REEL') : 'CAST';
-  $('pct').textContent = me.alive ? me.pct + '%' : 'KO';
-  $('pct').style.color = pctColor(me.pct);
-  $('pctsub').textContent = me.alive ? (me.swim ? 'Swim back to the pier!' : 'damage') : 'back in ' + Math.ceil(me.respawnT);
+  $('pct').textContent = me.alive ? me.hp : 'KO';
+  $('pct').style.color = me.alive ? hpColor(me.hp) : '#ff4d4d';
+  $('hpbar').style.width = (me.alive ? me.hp : 0) + '%';
+  $('hpbar').style.background = hpColor(me.hp);
+  $('vitals').classList.toggle('low', me.alive && me.hp <= 30);
+  $('pctsub').textContent = me.alive ? (me.swim ? 'Swim back! Dash to hop out' : 'health') : me.out ? 'Out this round. Watch and learn…' : 'back in ' + Math.ceil(Math.max(0, me.respawnT));
+  const pips = $('dashpips');
+  pips.innerHTML = '';
+  for (let i = 0; i < CFG.dashCharges; i++) {
+    const el = document.createElement('i');
+    const fill = i < me.dashN ? 1 : i === me.dashN ? me.dashRT / CFG.dashRecharge : 0;
+    el.style.setProperty('--f', fill);
+    if (fill >= 1) el.className = 'full';
+    pips.appendChild(el);
+  }
+  if (me.alive && me.hp <= 30) heartbeat(me.hp);
   $('armorbar').style.width = (me.armor / CFG.maxArmor) * 100 + '%';
   $('armortxt').textContent = me.armor > 0 ? '🦀 armor ' + me.armor : 'no armor';
   const buffs = [];
@@ -1288,9 +1331,9 @@ function updateHud(s, me) {
     if (ammo.children.length !== w.uses) { ammo.innerHTML = ''; for (let i = 0; i < w.uses; i++) ammo.appendChild(document.createElement('i')); }
     [...ammo.children].forEach((c, i) => c.classList.toggle('used', i >= me.weapon.uses));
   } else {
-    $('wname').textContent = 'Slap';
+    $('wname').textContent = 'No fish';
     $('wname').style.color = '#fff';
-    $('wdesc').textContent = me.hasRod ? 'Out of fish! Cast off any edge.' : 'Grab a rod from the rack in the middle.';
+    $('wdesc').textContent = me.hasRod ? 'Cast off any edge. Half a second gets you a fish.' : 'Grab a rod from the rack in the middle.';
     wEl.style.borderColor = 'transparent';
     $('ammo').innerHTML = '';
   }
@@ -1330,12 +1373,12 @@ function updateHud(s, me) {
   if (me.fishing) {
     fp.classList.remove('hidden');
     const d = me.fishing.depth;
-    $('needle').style.top = Math.min(100, (d / 26) * 100) + '%';
+    $('needle').style.top = Math.min(100, (d / (CFG.autoReel * 0.75)) * 100) + '%';
     const tier = Sim.tierFor(d);
     const total = tier.w.reduce((a, b) => a + b, 0);
     $('odds').innerHTML = tier.w.map((w, i) => (w ? `<i style="width:${(w / total) * 100}%;background:${RARITY_COLORS[RARITIES[i]]}"></i>` : '')).join('');
     $('oddsTxt').textContent = d < CFG.fishMinBite ? 'Waiting for a bite…' : tier.w.map((w, i) => (w ? `${RARITIES[i][0].toUpperCase()}${Math.round((w / total) * 100)}%` : '')).filter(Boolean).join(' ');
-    $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'R cancels · Space bails' : me.fishing.biteT > 0 ? 'BITE! Reel now!' : 'R to reel in';
+    $('reelhint').textContent = me.fishing.reelT > 0 ? 'Reeling in…' : d < CFG.fishMinBite ? 'Sinking… Space bails' : me.fishing.biteT > 0 ? 'BITE! Reel now!' : 'R to reel in';
     $('reelhint').style.color = me.fishing.biteT > 0 ? '#ffd23f' : '';
     fp.querySelector('h3').textContent = me.fishing.mult > 1.01 ? `Line in ×${me.fishing.mult.toFixed(2)}` : 'Line in the water';
   } else fp.classList.add('hidden');
@@ -1396,7 +1439,11 @@ function handleEvents(s, me) {
       case 'boom': boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
       case 'zap': zapFx(e.pts); SFX.zap(); break;
       case 'gadget':
-        if (e.id === myId) { SFX.pickup(); toast(`${GADGET_ICON[e.g]} ${GADGETS[e.g].name} x${e.n}<small>Bycatch! Press Q to use. ${GADGETS[e.g].desc}</small>`, GADGET_COLOR[e.g], 2); }
+        if (e.id === myId) {
+          SFX.gadget();
+          toast(`${GADGET_ICON[e.g]} ${GADGETS[e.g].name} x${e.n}<small>New gadget! Press ${touchState.on ? 'the green button' : 'Q'} to use it</small>`, GADGET_COLOR[e.g], 1.8);
+          for (const gb of [$('gadget'), $('tGadget')]) { gb.classList.remove('pop'); void gb.offsetWidth; gb.classList.add('pop'); }
+        }
         break;
       case 'usegadget': SFX.cast(); if (e.g === 'flounder' || e.g === 'jelly' || e.g === 'clam' || e.g === 'grouper') burst(e.x, 0.5, e.z, GADGET_COLOR[e.g], 6, 3, 0.12, 0.4); break;
       case 'scatter': burst(e.x, 0.4, e.z, '#5a2a80', 10, 5, 0.12, 0.5); SFX.slap(); break;
@@ -1413,9 +1460,9 @@ function handleEvents(s, me) {
         break;
       }
       case 'ko': {
-        if (e.by) feed(`${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥`);
+        if (e.by) feed(e.cause === 'blast' ? `${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥` : `${nameOf(s, e.by)} filleted ${nameOf(s, e.id)} 🐟`);
         else feed(`${nameOf(s, e.id)} drifted out to sea`);
-        if (e.id === myId) toast('KNOCKED OUT', '#ff5a5f', 2);
+        if (e.id === myId) toast(s.mode === 'rounds' ? 'YOU\'RE OUT<small>back next round</small>' : 'KNOCKED OUT', '#ff5a5f', 2);
         else if (e.by === myId) toast('KO! 🐟', '#ffd23f', 1.4);
         const p = s.players.find((q) => q.id === e.id);
         boomFx(e.x, e.z, 6);
@@ -1438,8 +1485,13 @@ function handleEvents(s, me) {
           burst(from.x, WATER_Y + 0.2, from.z, '#ffffff', 10, 4, 0.14, 0.5);
           effects.push({ m: fm, life: 0.45, max: 0.45, kind: 'arc', from, target: () => new THREE.Vector3(pv.x, 1.2, pv.z) });
         }
+        if (p && e.rarity !== 'common') {
+          const label = { uncommon: 'NICE', rare: 'RARE!', epic: 'EPIC!', legendary: 'LEGENDARY!' }[e.rarity];
+          floatText(p.x, 3.1, p.z, label, RARITY_COLORS[e.rarity], { cls: 'rarity ' + e.rarity, dur: 1300, rise: 0.8, exact: true });
+          if (e.rarity === 'epic' || e.rarity === 'legendary') { burst(p.x, 2.2, p.z, '#ffd23f', 24, 7, 0.14, 1, 4); ringFx(p.x, p.z, 4, RARITY_COLORS[e.rarity], 0.2); }
+        }
         if (e.id === myId) {
-          toast(`${e.perfect ? 'PERFECT! ' : ''}${w.name}<small style="color:${RARITY_COLORS[e.rarity]}">${e.rarity.toUpperCase()} · ${w.desc}${e.perfect ? ' · +25% ammo' : ''}</small>`, RARITY_COLORS[e.rarity], 2.4);
+          toast(`${e.perfect ? 'PERFECT! ' : ''}${w.name}<small style="color:${RARITY_COLORS[e.rarity]}">${e.rarity.toUpperCase()} · ${w.desc} · ${w.uses + (e.perfect ? CFG.perfectBonus : 0)} use${w.uses + (e.perfect ? CFG.perfectBonus : 0) > 1 ? 's' : ''}</small>`, RARITY_COLORS[e.rarity], 1.8);
           SFX.catch(e.rarity);
         } else if (e.rarity === 'epic' || e.rarity === 'legendary') feed(`${nameOf(s, e.id)} reeled in a <b style="color:${RARITY_COLORS[e.rarity]}">${w.name}</b>!`);
         break;
@@ -1463,9 +1515,23 @@ function handleEvents(s, me) {
       case 'land': burst(e.x, 0.2, e.z, e.player ? '#ffffff' : '#f5d78e', 6, 3, 0.12, 0.4); break;
       case 'noedge': if (e.id === myId) toast('Get to the edge of the pier to cast', '#fff', 1.2); break;
       case 'norod': if (e.id === myId) toast('No rod! Grab one in the middle.', '#fff', 1.2); break;
-      case 'dash': { const p = s.players.find((q) => q.id === e.id); if (p) burst(p.x, 0.3, p.z, '#ffffff', 4, 2, 0.12, 0.3, 2); break; }
+      case 'dash': {
+        const p = s.players.find((q) => q.id === e.id);
+        if (p) burst(p.x, e.water ? WATER_Y + 0.3 : 0.3, p.z, e.water ? '#bdf4ff' : '#ffffff', e.water ? 12 : 6, e.water ? 5 : 3, 0.14, 0.35, 2);
+        if (e.id === myId) SFX.dash(e.water);
+        break;
+      }
+      case 'dodge': { floatText(e.x, 2.3, e.z, 'DODGE', '#9fe8ff', { cls: 'small' }); if (e.id === myId) SFX.dodge(); break; }
+      case 'noweapon': if (e.id === myId) { toast('<small>no slapping! catch a fish first</small>', '#fff', 1); SFX.nope(); } break;
+      case 'round': toast(`ROUND ${e.n}<small>last fisher standing wins</small>`, '#ffd23f', 1.6); SFX.round(); break;
+      case 'roundover': {
+        const w = e.winner && s.players.find((q) => q.id === e.winner);
+        if (w && w.id === myId) { toast('YOU TAKE THE ROUND! 🏆', '#ffd23f', 2.5); SFX.win(); }
+        else toast(w ? `<span style="color:${w.color}">${escapeHtml(w.name)}</span> takes the round` : 'Nobody survived!', '#fff', 2.5);
+        break;
+      }
       case 'overtime': toast('OVERTIME<small>next KO wins</small>', '#ffd23f', 2.5); break;
-      case 'start': toast('GO FISH!', '#ffd23f', 1.5); break;
+      case 'start': if (e.mode !== 'rounds') toast('GO FISH!', '#ffd23f', 1.5); break;
       case 'spawn': if (e.id === myId) { const p = s.players.find((q) => q.id === e.id); if (p) cam.yaw = Math.atan2(p.ax, p.az); cam.pitch = 0.32; } break;
     }
   }
@@ -1531,7 +1597,10 @@ function frame(now) {
       updateHud(s, me);
       drawMinimap(s, me);
       const mv = me && views.players.get(me.id);
-      updateCamera(me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null, dt, t);
+      // out of the round: follow whoever is still fighting
+      let follow = me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null;
+      if (!follow && me && me.out) { const alive = s.players.find((q) => q.alive); const av = alive && views.players.get(alive.id); if (av) follow = { x: av.x, z: av.z, y: av.y }; }
+      updateCamera(follow, dt, t);
       if (s.phase === 'over' && !$('results').classList.contains('shown')) showResults(s);
       if (s.phase === 'play' && $('results').classList.contains('shown')) { $('results').classList.remove('shown'); $('results').classList.add('hidden'); }
     }
@@ -1587,7 +1656,7 @@ $('btnSolo').onclick = () => {
   ac();
   saveName();
   clearViews();
-  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: +getRound() }));
+  beginPlay(localSource({ name: $('name').value || 'You', bots: +getBots(), difficulty: getDiff(), round: getRound() }));
 };
 $('btnOnline').onclick = () => {
   saveName();
@@ -1625,7 +1694,7 @@ $('btnConnect').onclick = () => {
     if (playing && source === netSrc) { playing = false; hud.classList.add('hidden'); $('online').classList.remove('hidden'); }
   });
 };
-$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(+getRoundNet(), +getBotsNet()); };
+$('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet()); };
 
 function togglePause() {
   if (!playing) return;
@@ -1647,10 +1716,12 @@ function quitToMenu() {
 }
 function showResults(s) {
   $('results').classList.add('shown');
-  const ranked = [...s.players].sort((a, b) => b.kos - a.kos || a.deaths - b.deaths);
-  const win = ranked[0];
+  const rounds = s.mode === 'rounds';
+  const ranked = [...s.players].sort((a, b) => (rounds ? b.roundWins - a.roundWins : 0) || b.kos - a.kos || a.deaths - b.deaths);
+  const win = (s.winner && s.players.find((p) => p.id === s.winner)) || ranked[0];
   $('resTitle').innerHTML = win && win.id === source.myId ? 'YOU <span>WIN!</span>' : `${escapeHtml(win ? win.name : '?')} <span>WINS</span>`;
-  $('resBody').innerHTML = ranked.map((p) => `<tr><td><b style="color:${p.color}">${escapeHtml(p.name)}</b></td><td>${p.kos}</td><td>${p.deaths}</td><td>${p.caught}</td></tr>`).join('');
+  $('resHead').innerHTML = `<tr><th>Angler</th>${rounds ? '<th>Rounds</th>' : ''}<th>KOs</th><th>Deaths</th><th>Fish caught</th></tr>`;
+  $('resBody').innerHTML = ranked.map((p) => `<tr><td><b style="color:${p.color}">${escapeHtml(p.name)}</b></td>${rounds ? `<td>${p.roundWins}</td>` : ''}<td>${p.kos}</td><td>${p.deaths}</td><td>${p.caught}</td></tr>`).join('');
   setTimeout(() => { if (playing) $('results').classList.remove('hidden'); }, 1500);
 }
 $('btnAgain').onclick = () => {

@@ -31,9 +31,9 @@ To test how online play feels with lag, run `LAG_MS=60 npm start` (adds 60 ms ea
 |---|---|
 | WASD / arrows | Move |
 | Mouse | Aim |
-| Left click | Attack with your fish (or slap) |
+| Left click | Attack with your fish (no fish, no attack) |
 | R or right click | Cast, then reel in |
-| Space | Dash (also bails out of fishing) |
+| Space | Dash: 2 charges, dodges hits, crosses water gaps, hops you out of the water |
 | E | Swap your fish for one on the ground |
 | Q | Use your gadget fish (flounder mine, urchins, jelly, ink, clam, grouper) |
 | Esc | Pause (solo) |

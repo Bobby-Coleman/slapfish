@@ -10,34 +10,42 @@
 
   // ---------------------------------------------------------------- tuning
   const CFG = {
-    roundSeconds: 600,
+    roundSeconds: 600, // timed mode length
+    mode: 'rounds', // 'rounds': die and you're out until the next round; 'timed': most KOs, fast respawn
+    winRounds: 5, // rounds mode: first to this many round wins takes the match
+    roundCap: 100, // rounds mode: a round that runs this long goes to whoever has the most health
+    roundBreak: 3, // seconds between rounds
     tickRate: 30,
-    playerSpeed: 7.2,
-    heavySpeed: 6.0,
+    playerSpeed: 7.6,
+    heavySpeed: 6.6,
     playerRadius: 0.55,
-    healPct: 30, // Fish & Chips heals this much damage %
+    maxHp: 100,
+    healHp: 45, // Fish & Chips
     maxArmor: 50,
-    respawnSeconds: 5,
-    spawnInvuln: 1.5,
-    dashSpeed: 19,
-    dashTime: 0.16,
-    dashCooldown: 1.4,
+    respawnSeconds: 1.5, // timed mode
+    spawnInvuln: 1.2,
+    dashSpeed: 30,
+    dashTime: 0.2, // about 6 units
+    dashCharges: 2,
+    dashRecharge: 1.2, // per charge
+    dashIframes: 0.15, // can't be hit at the start of a dash
+    waterDash: { up: 9, speed: 12 }, // dashing out of the water hops you onto anything close
     kbScale: 1.0, // global knockback tuning
     dmgScale: 1, // global damage tuning
-    usesScale: 1.25, // global ammo tuning
-    pctScale: 100, // Smash-style: launch power = kb * kbScale * (1 + damage% / pctScale)
+    usesScale: 1, // global ammo tuning
+    hurtScale: 120, // knockback grows as you lose health: kb * (1 + missingHp / hurtScale)
     launchUp: 0.45, // vertical share of a launch
     airThreshold: 6, // launches weaker than this just slide you along the ground
     gravity: 30,
-    blastRadius: 40, // fly or swim past this ring and you're KO'd
+    blastRadius: 40, // fly or swim past this ring and you're KO'd instantly
     waterY: -0.9,
-    swimSpeed: 3.4,
-    climbTime: 0.5,
+    swimSpeed: 5,
+    climbTime: 0.35,
     creditWindow: 8, // seconds a hit counts for KO credit
-    rackRespawn: 6,
-    fishMinBite: 2.5,
-    reelTime: 0.6,
-    autoReel: 30,
+    rackRespawn: 4,
+    fishMinBite: 0.5, // reel in any time after this and you always get something
+    reelTime: 0.3,
+    autoReel: 12,
     pierTipMult: 1.35,
     catchUpGap: 3,
     catchUpMult: 1.25,
@@ -45,8 +53,9 @@
     pelicanEvery: 40,
     pelicanJitter: 10,
     groundFishLife: 20,
-    biteWindow: 0.55, // reel while the bobber is pulled under for a perfect catch
-    perfectBonus: 1.25, // perfect catch ammo multiplier
+    biteWindow: 0.5, // reel while the bobber is pulled under for a perfect catch
+    biteEvery: [1.5, 3], // seconds between bites
+    perfectBonus: 1, // perfect catch: this many extra uses
   };
 
   const MAP = {
@@ -67,25 +76,24 @@
 
   // Depth tiers: the longer the line is in, the deeper it sinks. Weights are per rarity, in RARITIES order.
   const TIERS = [
-    { id: 'shallow', name: 'Shallows', from: 0, w: [70, 25, 5, 0, 0] },
-    { id: 'reef', name: 'Reef', from: 6, w: [35, 42, 20, 3, 0] },
-    { id: 'deep', name: 'Deep', from: 12, w: [12, 33, 38, 15, 2] },
-    { id: 'abyss', name: 'Abyss', from: 20, w: [3, 17, 40, 30, 10] },
+    { id: 'shallow', name: 'Shallows', from: 0, w: [100, 0, 0, 0, 0] },
+    { id: 'reef', name: 'Reef', from: 2, w: [50, 45, 5, 0, 0] },
+    { id: 'deep', name: 'Deep', from: 4, w: [5, 35, 40, 18, 2] },
+    { id: 'abyss', name: 'Abyss', from: 7, w: [0, 10, 35, 35, 20] },
   ];
 
   // Every fish is a weapon. Power budget (uses x damage, plus knockback and area) climbs with rarity.
   const WEAPONS = {
-    slap: { name: 'Slap', rarity: 'none', kind: 'melee', dmg: 6, kb: 7, cd: 0.45, uses: Infinity, range: 1.9, arc: 0.5 },
-    sardine: { name: 'Sardine Shooter', rarity: 'common', kind: 'shot', dmg: 8, kb: 3.5, cd: 0.25, uses: 28, speed: 32, life: 0.55, rad: 0.25, desc: 'Fast little pistol.' },
-    mackerel: { name: 'Mackerel Slapper', rarity: 'common', kind: 'melee', dmg: 12, kb: 10, cd: 0.5, uses: 20, range: 2.3, arc: 0.4, desc: 'A proper slap.' },
-    squid: { name: 'Squid Ink Blaster', rarity: 'uncommon', kind: 'shot', dmg: 6, kb: 2, cd: 0.3, uses: 25, pellets: 3, spread: 0.22, speed: 22, life: 0.5, rad: 0.35, slow: 2, desc: 'Ink spray that slows.' },
-    puffer: { name: 'Pufferfish Grenade', rarity: 'uncommon', kind: 'lob', dmg: 30, kb: 17, cd: 0.9, uses: 8, maxRange: 13, aoe: 3.4, flight: 0.6, desc: 'Lobbed, pops on landing.' },
-    swordfish: { name: 'Swordfish', rarity: 'rare', kind: 'melee', dmg: 22, kb: 17, cd: 0.65, uses: 16, range: 3.3, arc: 0.55, lunge: 15, desc: 'Lunging blade. Get close.' },
-    tuna: { name: 'Tuna Cannon', rarity: 'rare', kind: 'shot', dmg: 18, kb: 22, cd: 0.95, uses: 10, speed: 26, life: 0.9, rad: 0.8, desc: 'Slow, huge knockback.' },
-    hammerhead: { name: 'Hammerhead', rarity: 'epic', kind: 'slam', dmg: 32, kb: 24, cd: 1.1, uses: 12, aoe: 2.6, reach: 1.8, heavy: true, desc: 'Ground slam. Heavy.' },
-    eel: { name: 'Electric Eel', rarity: 'epic', kind: 'zap', dmg: 13, kb: 10, cd: 0.5, uses: 20, range: 13, cone: 0.85, chain: 6, stun: 0.5, desc: 'Auto-aim zap, chains, stuns.' },
-    shark: { name: 'Shark Rocket', rarity: 'legendary', kind: 'rocket', dmg: 38, kb: 28, cd: 1.25, uses: 7, speed: 20, life: 1.5, rad: 0.5, aoe: 3.6, desc: 'Explosive. Clears piers.' },
-    narwhal: { name: 'Golden Narwhal', rarity: 'legendary', kind: 'pierce', dmg: 45, kb: 22, cd: 1.3, uses: 7, speed: 60, life: 0.5, rad: 0.35, desc: 'Piercing sniper lance.' },
+    sardine: { name: 'Sardine Burst', rarity: 'common', kind: 'shot', dmg: 9, kb: 4, cd: 0.45, uses: 3, pellets: 4, spread: 0.13, speed: 34, life: 0.42, rad: 0.25, desc: 'Shotgun spray. Brutal up close.' },
+    mackerel: { name: 'Mackerel Club', rarity: 'common', kind: 'melee', dmg: 34, kb: 11, cd: 0.45, uses: 3, range: 2.4, arc: 0.3, desc: 'A wide, meaty swing.' },
+    squid: { name: 'Squid Ink Blaster', rarity: 'uncommon', kind: 'shot', dmg: 12, kb: 3, cd: 0.4, uses: 3, pellets: 3, spread: 0.2, speed: 24, life: 0.55, rad: 0.35, slow: 2, desc: 'Ink spray that slows.' },
+    puffer: { name: 'Pufferfish Grenade', rarity: 'uncommon', kind: 'lob', dmg: 45, kb: 15, cd: 0.7, uses: 2, maxRange: 13, aoe: 3.2, flight: 0.6, desc: 'Lobbed, pops on landing.' },
+    eel: { name: 'Electric Eel', rarity: 'uncommon', kind: 'zap', dmg: 28, kb: 8, cd: 0.5, uses: 3, range: 12, cone: 0.85, chain: 6, stun: 0.6, desc: 'Auto-aim zap that chains and stuns.' },
+    swordfish: { name: 'Swordfish', rarity: 'rare', kind: 'melee', dmg: 60, kb: 16, cd: 0.6, uses: 2, range: 3.3, arc: 0.5, lunge: 22, desc: 'Huge lunge. Crosses gaps.' },
+    tuna: { name: 'Tuna Cannon', rarity: 'rare', kind: 'shot', dmg: 50, kb: 24, cd: 0.8, uses: 2, speed: 28, life: 0.9, rad: 0.8, desc: 'A cannonball fish. Massive knockback.' },
+    hammerhead: { name: 'Hammerhead', rarity: 'epic', kind: 'slam', dmg: 70, kb: 26, cd: 0.9, uses: 2, aoe: 2.8, reach: 1.8, heavy: true, desc: 'Ground slam. Heavy.' },
+    shark: { name: 'Shark Rocket', rarity: 'legendary', kind: 'rocket', dmg: 100, kb: 30, cd: 1, uses: 1, speed: 22, life: 1.5, rad: 0.5, aoe: 3, desc: 'One shot, one kill.' },
+    narwhal: { name: 'Golden Narwhal', rarity: 'legendary', kind: 'pierce', dmg: 100, kb: 24, cd: 1, uses: 1, speed: 70, life: 0.55, rad: 0.35, desc: 'Piercing lance. One-shot kill.' },
   };
   const BY_RARITY = {};
   for (const id in WEAPONS) {
@@ -242,6 +250,11 @@
       cfg: Object.assign({}, CFG, opts.cfg || {}),
       state: {
         phase: 'lobby', // lobby | play | over
+        mode: (opts.cfg && opts.cfg.mode) || opts.mode || CFG.mode,
+        round: 0, // rounds mode: current round number
+        roundT: 0, // time into the current round
+        breakT: 0, // rounds mode: countdown to the next round (0 = a round is running)
+        roundWinner: null,
         time: 0,
         roundLeft: (opts.roundSeconds || CFG.roundSeconds),
         roundSeconds: (opts.roundSeconds || CFG.roundSeconds),
@@ -278,7 +291,7 @@
       const p = {
         id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal',
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
-        pct: 0, armor: 0, alive: false, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
+        hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0,
         fishing: null, bubble: 0, lure: 0, gadget: null,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
@@ -324,11 +337,45 @@
       for (const r of S.rack) { r.ready = true; r.t = 0; }
       let i = 0;
       for (const p of Object.values(S.players)) {
-        Object.assign(p, { kos: 0, deaths: 0, caught: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
+        Object.assign(p, { kos: 0, deaths: 0, caught: 0, roundWins: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
         i++;
       }
-      emit('start', {});
+      S.round = 0;
+      S.roundWinner = null;
+      emit('start', { mode: S.mode });
+      if (S.mode === 'rounds') startRound();
     };
+
+    // rounds mode: wipe the pier and drop everyone back in at full health
+    function startRound() {
+      S.round++;
+      S.roundT = 0;
+      S.breakT = 0;
+      S.roundWinner = null;
+      S.projectiles = [];
+      S.traps = [];
+      S.items = [];
+      S.pelicans = [];
+      S.nextPelican = 18;
+      for (const r of S.rack) { r.ready = true; r.t = 0; }
+      for (const p of Object.values(S.players)) {
+        Object.assign(p, { alive: false, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
+      }
+      for (const p of Object.values(S.players)) spawnPlayer(p);
+      emit('round', { n: S.round });
+    }
+
+    function endRound(winner) {
+      S.breakT = C.roundBreak;
+      S.roundWinner = winner ? winner.id : null;
+      if (winner) winner.roundWins++;
+      emit('roundover', { n: S.round, winner: S.roundWinner });
+      if (winner && winner.roundWins >= C.winRounds) {
+        S.phase = 'over';
+        S.winner = winner.id;
+        emit('over', { winner: S.winner });
+      }
+    }
 
     function spawnPlayer(p) {
       const others = Object.values(S.players).filter((o) => o !== p && o.alive);
@@ -340,7 +387,7 @@
         if (d > bestD) { bestD = d; best = s; }
       }
       Object.assign(p, {
-        x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, pct: 0, alive: true, air: false, swim: false, climbT: 0,
+        x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, hp: C.maxHp, dashN: C.dashCharges, dashRT: 0, dashIF: 0, alive: true, air: false, swim: false, climbT: 0,
         invulnT: C.spawnInvuln, kbT: 0, slowT: 0, stunT: 0, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
       });
       const l = len(-p.x, -p.z) || 1;
@@ -350,7 +397,7 @@
 
     function leaderKos() {
       let m = 0;
-      for (const p of Object.values(S.players)) m = Math.max(m, p.kos);
+      for (const p of Object.values(S.players)) m = Math.max(m, S.mode === 'rounds' ? p.roundWins : p.kos);
       return m;
     }
 
@@ -360,7 +407,9 @@
       if (credit && credit !== p) credit.kos++;
       p.deaths++;
       p.alive = false;
-      p.respawnT = C.respawnSeconds;
+      p.hp = 0;
+      // rounds mode: you're out until the next round
+      p.respawnT = S.mode === 'rounds' ? Infinity : C.respawnSeconds;
       // whatever you were carrying is lost at sea
       p.gadget = null;
       p.weapon = null;
@@ -373,6 +422,7 @@
     function hit(t, attacker, dmg, dirx, dirz, kb, extra) {
       if (!t.alive || t.invulnT > 0) return false;
       if (attacker && attacker.id === t.id) return false;
+      if (t.dashIF > 0) { emit('dodge', { id: t.id, x: t.x, z: t.z }); return false; }
       if (t.fishing && t.bubble > 0) {
         t.bubble--;
         emit('bubble', { id: t.id, left: t.bubble });
@@ -386,9 +436,9 @@
       const absorbed = Math.min(t.armor, dmg);
       t.armor -= absorbed;
       dmg -= absorbed;
-      t.pct += dmg;
-      // Smash-style: the more damage you've taken, the harder you fly
-      const power = kb * C.kbScale * (1 + t.pct / C.pctScale) * (t.armor > 0 ? 0.8 : 1);
+      t.hp -= dmg;
+      // the less health you have left, the harder you fly
+      const power = kb * C.kbScale * (1 + (C.maxHp - Math.max(0, t.hp)) / C.hurtScale) * (t.armor > 0 ? 0.8 : 1);
       const l = len(dirx, dirz) || 1;
       const dx = dirx / l, dz = dirz / l;
       if (t.climbT > 0) { t.climbT = 0; t.swim = true; t.y = C.waterY; }
@@ -410,7 +460,8 @@
       if (extra && extra.slow) t.slowT = Math.max(t.slowT, extra.slow);
       if (extra && extra.stun) t.stunT = Math.max(t.stunT, extra.stun);
       if (attacker) { t.lastHitBy = attacker.id; t.lastHitT = S.time; }
-      emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z, y: t.y, pct: Math.round(t.pct) });
+      emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z, y: t.y, hp: Math.max(0, Math.round(t.hp)) });
+      if (t.hp <= 0) kill(t, 'hp');
       return true;
     }
 
@@ -427,7 +478,12 @@
     }
 
     function useWeapon(p, inp) {
-      const wid = p.weapon ? p.weapon.id : 'slap';
+      if (!p.weapon) {
+        // no slapping: you have to fish for a weapon
+        if (p.cd <= 0) { p.cd = 0.8; emit('noweapon', { id: p.id }); }
+        return;
+      }
+      const wid = p.weapon.id;
       const w = WEAPONS[wid];
       p.cd = w.cd;
       p.swingT = 0.2;
@@ -509,7 +565,7 @@
     }
 
     function giveWeapon(p, wid, uses) {
-      p.weapon = { id: wid, uses: uses != null ? uses : Math.round(WEAPONS[wid].uses * C.usesScale) };
+      p.weapon = { id: wid, uses: uses != null ? uses : Math.max(1, Math.round(WEAPONS[wid].uses * C.usesScale)) };
       p.cd = Math.min(p.cd, 0.2);
     }
 
@@ -528,7 +584,7 @@
         if (it.kind === 'rod') { if (!p.hasRod) { p.hasRod = true; take = true; } }
         else if (it.kind === 'fish') {
           if (!p.weapon || inp.use) { if (p.weapon && p.weapon.uses > 0) S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x, z: p.z, life: C.groundFishLife }); giveWeapon(p, it.weapon, it.uses); take = true; inp.use = false; }
-        } else if (it.kind === 'heal') { if (p.pct > 0) { p.pct = Math.max(0, p.pct - C.healPct); take = true; } }
+        } else if (it.kind === 'heal') { if (p.hp < C.maxHp) { p.hp = Math.min(C.maxHp, p.hp + C.healHp); take = true; } }
         else if (it.kind === 'armor') { if (p.armor < C.maxArmor) { p.armor = C.maxArmor; take = true; } }
         else if (it.kind === 'bubble') { p.bubble = 2; take = true; }
         else if (it.kind === 'lure') { p.lure = 2; take = true; }
@@ -568,6 +624,11 @@
       p.invulnT = Math.max(0, p.invulnT - dt);
       p.cd = Math.max(0, p.cd - dt);
       p.dashCd = Math.max(0, p.dashCd - dt);
+      p.dashIF = Math.max(0, p.dashIF - dt);
+      if (p.dashN < C.dashCharges) {
+        p.dashRT += dt;
+        if (p.dashRT >= C.dashRecharge) { p.dashRT = 0; p.dashN++; }
+      } else p.dashRT = 0;
       p.slowT = Math.max(0, p.slowT - dt);
       p.stunT = Math.max(0, p.stunT - dt);
       p.kbT = Math.max(0, p.kbT - dt);
@@ -579,6 +640,7 @@
 
       // in the water you can only swim back; in the air you can still attack once out of hitstun
       if (p.swim || p.air) {
+        if (p.swim && inp.dash && !stunned && p.kbT <= 0) { inp.dash = false; waterDash(p, inp); }
         inp.fish = false; inp.dash = false; inp.use = false; inp.gadget = false;
         if (p.air && inp.fire && p.cd <= 0 && p.kbT <= 0 && !stunned) useWeapon(p, inp);
         integrate(p, dt, stunned ? 0 : inp.mx, stunned ? 0 : inp.mz);
@@ -600,7 +662,7 @@
               // the old fish flops onto the pier so it isn't simply lost
               S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x - f.dx * 1.2, z: p.z - f.dz * 1.2, life: C.groundFishLife });
             }
-            giveWeapon(p, r.wid, f.perfect ? Math.round(WEAPONS[r.wid].uses * C.usesScale * C.perfectBonus) : null);
+            giveWeapon(p, r.wid, f.perfect ? Math.max(1, Math.round(WEAPONS[r.wid].uses * C.usesScale)) + C.perfectBonus : null);
             p.caught++;
             p.fishing = null;
             emit('catch', { id: p.id, w: r.wid, rarity: WEAPONS[r.wid].rarity, tier: r.tier, depth: f.depth, perfect: f.perfect });
@@ -610,7 +672,7 @@
           f.biteT = Math.max(0, f.biteT - dt);
           if (f.depth >= C.fishMinBite) {
             f.biteIn -= dt;
-            if (f.biteIn <= 0) { f.biteT = C.biteWindow; f.biteIn = rand(2, 4.5); emit('bite', { id: p.id, x: f.bx, z: f.bz }); }
+            if (f.biteIn <= 0) { f.biteT = C.biteWindow; f.biteIn = rand(C.biteEvery[0], C.biteEvery[1]); emit('bite', { id: p.id, x: f.bx, z: f.bz }); }
           }
           const prevTier = tierFor(f.depth).id;
           f.depth += dt * f.mult;
@@ -637,7 +699,7 @@
             let mult = isPierTip(p.x, p.z) ? C.pierTipMult : 1;
             if (p.lure > 0) { mult *= 2; p.lure--; }
             if (p.kos <= leaderKos() - C.catchUpGap) mult *= C.catchUpMult;
-            p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z), biteIn: C.fishMinBite + rand(0.2, 1.6), biteT: 0, perfect: false };
+            p.fishing = { depth: 0, mult, dx: dir.x, dz: dir.z, bx: p.x + dir.x * 5, bz: p.z + dir.z * 5, reelT: 0, tip: isPierTip(p.x, p.z), biteIn: C.fishMinBite + rand(0.3, 1.2), biteT: 0, perfect: false };
             p.ax = dir.x; p.az = dir.z;
             emit('cast', { id: p.id, x: p.fishing.bx, z: p.fishing.bz, mult });
             integrate(p, dt, 0, 0);
@@ -779,14 +841,28 @@
       }
     }
 
+    // Two charges, a long burst, a moment of dodge frames, and it carries you over water gaps.
     function doDash(p, inp) {
-      if (p.dashCd > 0) return;
+      if (p.dashN <= 0 || p.dashCd > 0) return;
       let dx = inp.mx, dz = inp.mz;
       if (len(dx, dz) < 0.1) { dx = p.ax; dz = p.az; }
       const l = len(dx, dz);
       p.vx = (dx / l) * C.dashSpeed; p.vz = (dz / l) * C.dashSpeed;
-      p.dashT = C.dashTime; p.dashCd = C.dashCooldown;
+      p.dashT = C.dashTime; p.dashCd = 0.12; p.dashIF = C.dashIframes;
+      p.dashN--;
       emit('dash', { id: p.id });
+    }
+
+    // Dash while swimming: hop up out of the water toward where you're steering (or the nearest boards).
+    function waterDash(p, inp) {
+      if (p.dashN <= 0) return;
+      let dx = inp.mx, dz = inp.mz;
+      if (len(dx, dz) < 0.1) { const np = nearestPlatformPoint(p.x, p.z); dx = np.x - p.x; dz = np.z - p.z; }
+      const l = len(dx, dz) || 1;
+      p.swim = false; p.air = true;
+      p.vx = (dx / l) * C.waterDash.speed; p.vz = (dz / l) * C.waterDash.speed; p.vy = C.waterDash.up;
+      p.dashN--; p.dashIF = C.dashIframes; p.kbT = 0;
+      emit('dash', { id: p.id, water: true, x: p.x, z: p.z });
     }
 
     function integrate(p, dt, mx, mz) {
@@ -861,7 +937,7 @@
         p.vx += (mx * speed - p.vx) * k;
         p.vz += (mz * speed - p.vz) * k;
       }
-      const free = p.kbT > 0; // knockback can carry you off the edge; walking (and dashing) cannot
+      const free = p.kbT > 0 || p.dashT > 0; // knockback and dashes can carry you off the edge; walking cannot
       const m = C.playerRadius * 0.7;
       let nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
       if (!free) {
@@ -876,7 +952,8 @@
       }
       p.x = nx; p.z = nz;
       if (!onPlatform(p.x, p.z, 0)) {
-        // slid off the edge: drop toward the water
+        // off the edge: a dash keeps flying until it ends, then you drop toward the water
+        if (p.dashT > 0) return;
         p.air = true; p.vy = 0; p.y = 0;
         p.fishing = null;
         emit('fall', { id: p.id });
@@ -975,13 +1052,32 @@
       if (S.phase === 'lobby') return;
       if (S.phase === 'over') { S.time += dt; return; }
       S.time += dt;
-      S.roundLeft -= dt;
+      const rounds = S.mode === 'rounds';
+      if (rounds && S.breakT > 0) {
+        // between rounds: the survivor gets a short victory lap, then everyone drops back in
+        S.breakT -= dt;
+        if (S.breakT <= 0) { startRound(); return; }
+      }
+      if (!rounds) S.roundLeft -= dt;
+      else if (S.breakT <= 0) S.roundT += dt;
       for (const p of Object.values(S.players)) if (p.bot) g.setInput(p.id, botThink(g, p, dt));
       for (const p of Object.values(S.players)) stepPlayer(p, g.inputs[p.id], dt);
       separatePlayers();
       stepProjectiles(dt);
       stepTraps(dt);
       stepWorld(dt);
+      if (rounds) {
+        if (S.breakT > 0) return;
+        const all = Object.values(S.players);
+        const alive = all.filter((p) => p.alive);
+        if (all.length >= 2 && alive.length <= 1) endRound(alive[0] || null);
+        else if (S.roundT >= C.roundCap && all.length >= 2) {
+          // too long: whoever is healthiest takes it
+          alive.sort((a, b) => b.hp - a.hp);
+          endRound(alive[0]);
+        }
+        return;
+      }
       if (S.roundLeft <= 0) {
         const ranked = Object.values(S.players).sort((a, b) => b.kos - a.kos || a.deaths - b.deaths);
         const top = ranked[0];
@@ -1002,12 +1098,13 @@
       const r2 = (v) => Math.round(v * 100) / 100;
       return {
         phase: S.phase, time: r2(S.time), roundLeft: r2(S.roundLeft), roundSeconds: S.roundSeconds, overtime: !!S.overtime, winner: S.winner,
+        mode: S.mode, round: S.round, roundT: r2(S.roundT), breakT: r2(S.breakT), roundWinner: S.roundWinner, winRounds: C.winRounds, roundCap: C.roundCap,
         players: Object.values(S.players).map((p) => ({
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
-          pct: Math.round(p.pct), armor: Math.round(p.armor), alive: p.alive, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: r2(p.respawnT), invulnT: r2(p.invulnT),
+          hp: Math.max(0, Math.round(p.hp)), armor: Math.round(p.armor), alive: p.alive, out: p.respawnT === Infinity, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: p.respawnT === Infinity ? -1 : r2(p.respawnT), dashN: p.dashN, dashRT: r2(p.dashRT), dashIF: r2(p.dashIF), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
-          bubble: p.bubble, lure: p.lure, gadget: p.gadget, kos: p.kos, deaths: p.deaths, caught: p.caught,
+          bubble: p.bubble, lure: p.lure, gadget: p.gadget, roundWins: p.roundWins, kos: p.kos, deaths: p.deaths, caught: p.caught,
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
         traps: S.traps.map((t) => ({ id: t.id, kind: t.kind, owner: t.owner, x: r2(t.x), z: r2(t.z), life: r2(t.life), armed: !(t.arm > 0), rot: t.rot ? r2(t.rot) : 0 })),
@@ -1060,6 +1157,8 @@
       const t = p.swim ? nearestPlatformPoint(p.x, p.z) : { x: 0, z: 0 };
       const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz) || 1;
       out.mx = dx / d; out.mz = dz / d;
+      // hop out of the water once the boards are in reach
+      if (p.swim && d < 4.5 && p.dashN > 0 && Math.random() < 0.15) out.dash = true;
       return out;
     }
 
@@ -1122,7 +1221,7 @@
       if (threat) {
         if (f.depth >= g.cfg.fishMinBite) out.fish = true;
         else if (ed < 4) out.dash = true; // bail out
-      } else if (f.depth >= b.target && (f.biteT > 0 || f.depth >= b.target + 4 || p.difficulty === 'easy')) out.fish = true;
+      } else if (f.depth >= b.target && (f.biteT > 0 || f.depth >= b.target + 1.5 || p.difficulty === 'easy')) out.fish = true;
       return out;
     }
 
@@ -1132,7 +1231,7 @@
       if (it.y > 0.5) continue;
       const d = len(it.x - p.x, it.z - p.z);
       let v = 0;
-      if (it.kind === 'heal') v = p.pct > 40 ? 10 : 0;
+      if (it.kind === 'heal') v = p.hp < 60 ? 10 : 0;
       else if (it.kind === 'armor') v = p.armor < 25 ? 8 : 0;
       else if (it.kind === 'cooler') v = 12;
       else if (it.kind === 'tackle') v = p.gadget ? 3 : 7;
@@ -1172,15 +1271,20 @@
       }
       const range = melee ? (w.range || w.reach + w.aoe) + 0.3 : w.kind === 'zap' ? w.range : w.kind === 'lob' ? w.maxRange : sp * (w.life || 1);
       if (ed < range && Math.random() < skill.fireRate) out.fire = true;
-      if (melee && ed < 5 && ed > 2.2 && p.dashCd <= 0 && Math.random() < 0.03) out.dash = true;
+      if (melee && ed < 5 && ed > 2.2 && p.dashN > 0 && Math.random() < 0.03) out.dash = true;
+      // sidestep incoming fire
+      else if (enemyArmed && ed < 9 && p.dashN > 1 && enemy.swingT > 0 && Math.random() < 0.3 * skill.fireRate) {
+        out.mx = (-tz / tl) * b.strafe; out.mz = (tx / tl) * b.strafe; out.dash = true;
+      }
       return out;
     }
 
-    // --- unarmed with a nearby armed enemy: slap if very close, else run
-    if (enemy && !p.weapon && ed < 2.2) {
+    // --- unarmed with an armed enemy close by: dash away (there's no slapping)
+    if (enemy && !p.weapon && enemyArmed && ed < 4.5 && p.dashN > 0 && Math.random() < 0.08) {
       const tx = enemy.x - p.x, tz = enemy.z - p.z, tl = len(tx, tz) || 1;
-      out.ax = tx / tl; out.az = tz / tl; out.fire = true;
-      if (enemyArmed && p.dashCd <= 0 && Math.random() < 0.05) { out.mx = -tx / tl; out.mz = -tz / tl; out.dash = true; }
+      const home = navTarget(p, 0, 0), hx = home.x - p.x, hz = home.z - p.z, hl = len(hx, hz) || 1;
+      out.mx = -tx / tl * 0.6 + hx / hl * 0.4; out.mz = -tz / tl * 0.6 + hz / hl * 0.4;
+      out.dash = true;
       return out;
     }
 
@@ -1200,7 +1304,7 @@
       b.spot = best;
       const greedy = !enemy || !enemyArmed ? 1 : 0.5;
       const roll = Math.random() * skill.greed * greedy;
-      b.target = roll > 0.85 ? rand(20, 24) : roll > 0.55 ? rand(12, 16) : roll > 0.25 ? rand(6, 9) : rand(2.6, 4.5);
+      b.target = roll > 0.85 ? rand(7, 8.5) : roll > 0.55 ? rand(4, 5.5) : roll > 0.25 ? rand(2, 3) : rand(0.6, 1.4);
     }
     if (moveTo(b.spot.x, b.spot.z, 0.6)) {
       const dir = waterDirection(p.x, p.z, p.x, p.z) || { x: Math.sign(p.x), z: 0 };

@@ -70,7 +70,8 @@ wss.on('connection', (ws) => {
       room.game.setInput(id, msg.i || {});
     } else if (msg.t === 'start' && id === room.host) {
       const g = room.game;
-      if (msg.round) g.state.roundSeconds = Math.max(60, Math.min(1200, +msg.round));
+      if (msg.round === 'rounds') g.state.mode = 'rounds';
+      else if (msg.round) { g.state.mode = 'timed'; g.state.roundSeconds = Math.max(60, Math.min(1200, +msg.round)); }
       // replace bots with the requested count
       for (const p of Object.values(g.state.players)) if (p.bot) g.removePlayer(p.id);
       const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates'];
