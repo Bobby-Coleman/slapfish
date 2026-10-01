@@ -27,7 +27,7 @@
   .hidden { display: none !important; }
   #tags { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
   .tag { position: absolute; transform: translate(-50%, -100%); text-align: center; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px #0008; white-space: nowrap; }
-  .tag .bar { width: 54px; height: 6px; background: #0006; border-radius: 3px; margin: 2px auto 0; overflow: hidden; position: relative; }
+  .tag .bar { display: none; width: 54px; height: 6px; background: #0006; border-radius: 3px; margin: 2px auto 0; overflow: hidden; position: relative; }
   .tag .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #5ee07a; }
   .tag .bar b { position: absolute; top: 0; bottom: 0; background: #9fd3ff; }
   .tag .fishing { font-size: 11px; padding: 0 6px; border-radius: 8px; margin-top: 2px; display: inline-block; color: #10223a; }
@@ -51,7 +51,13 @@
   .meter { height: 14px; background: #0007; border-radius: 7px; overflow: hidden; margin: 3px 0; position: relative; }
   .meter i { position: absolute; inset: 0 auto 0 0; transition: width .15s; }
   .meter span { position: absolute; inset: 0; font-size: 11px; line-height: 14px; text-align: center; font-weight: 700; }
-  #hpbar { background: linear-gradient(90deg, #ff5a5f, #5ee07a); }
+  #pct { font-weight: 800; font-size: 44px; line-height: 1; text-shadow: 0 3px 0 #10223a; font-variant-numeric: tabular-nums; }
+  #pctsub { font-size: 12px; opacity: .85; margin-bottom: 4px; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: none; }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 2px #10223a; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
+  .tag .pc { font-size: 15px; font-weight: 800; }
   #armorbar { background: #9fd3ff; }
   #buffs { display: flex; gap: 6px; margin-top: 4px; font-size: 13px; min-height: 18px; }
   #buffs span { background: #ffffff22; padding: 0 6px; border-radius: 8px; }
@@ -109,23 +115,27 @@
   .stick i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: #fff8eccc; }
   #stickL { left: 20px; }
   #stickR { right: 20px; }
-  #stickR i { background: #ff5a5fdd; }
+  #stickR i { background: #9fe8ffdd; }
   .tbtn { position: absolute; right: 20px; width: 62px; height: 62px; border-radius: 50%; border: 3px solid #fff8ec88; background: #10223a99; color: #fff8ec; font: 800 13px 'Baloo 2', system-ui, sans-serif; pointer-events: auto; touch-action: none; }
   .tbtn:active { background: #ffd23f; color: #10223a; }
-  #tFish { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 96px; width: 74px; height: 74px; font-size: 15px; background: #1fa3c9cc; }
+  #tFire { bottom: calc(165px + env(safe-area-inset-bottom, 0px)); right: 96px; width: 84px; height: 84px; font-size: 18px; background: #ff5a5fcc; }
+  #tFish { bottom: calc(260px + env(safe-area-inset-bottom, 0px)); right: 18px; width: 70px; height: 70px; font-size: 14px; background: #1fa3c9cc; }
   #tDash { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 16px; }
-  #tSwap { bottom: calc(240px + env(safe-area-inset-bottom, 0px)); right: 30px; width: 50px; height: 50px; }
+  #tSwap { bottom: calc(268px + env(safe-area-inset-bottom, 0px)); right: 104px; width: 50px; height: 50px; }
   #tPause { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--hud-bg); color: #fff; font-size: 18px; pointer-events: auto; }
   body.touch #help, body.touch #minimap { display: none; }
-  body.touch #bottom { bottom: auto; top: 52px; left: 8px; right: 8px; gap: 6px; }
+  body.touch #bottom { bottom: auto; top: 96px; left: 8px; right: 8px; gap: 6px; align-items: flex-start; }
   body.touch #vitals { width: 130px; padding: 6px 8px; }
   body.touch #weapon { padding: 4px 8px; min-width: 0; flex: 1; }
   body.touch #wname { font-size: 16px; }
   body.touch #wdesc { font-size: 11px; }
-  body.touch #prompt { bottom: auto; top: 140px; font-size: 14px; }
-  body.touch #fishing { top: 150px; transform: none; left: 8px; right: auto; width: 120px; padding: 6px; }
+  body.touch #crosshair { width: 16px; height: 16px; margin: -8px 0 0 -8px; }
+  body.touch #prompt { bottom: auto; top: 196px; font-size: 13px; max-width: calc(100vw - 32px); text-align: center; }
+  body.touch #pct { font-size: 26px; }
+  body.touch #pctsub { font-size: 10px; margin-bottom: 2px; }
+  body.touch #fishing { top: 220px; transform: none; left: 8px; right: auto; width: 120px; padding: 6px; }
   body.touch #gauge { height: 140px; }
-  body.touch #feed { top: 140px; }
+  body.touch #feed { top: 220px; }
   body.touch #toast { font-size: 26px; top: 30%; }
   @media (max-width: 700px) {
     #help, #minimap { display: none; }
@@ -146,6 +156,7 @@
   <div id="topbar"><div id="timer">10:00</div></div>
   <div id="feed"></div>
   <div id="toast"></div>
+  <div id="crosshair"></div>
   <div id="prompt" class="hidden"></div>
   <div id="fishing" class="hidden">
     <h3>Line in the water</h3>
@@ -156,17 +167,17 @@
   </div>
   <div id="bottom">
     <div id="vitals">
-      <div class="meter"><i id="hpbar"></i><span id="hptxt">100</span></div>
+      <div id="pct">0%</div><div id="pctsub">damage</div>
       <div class="meter"><i id="armorbar"></i><span id="armortxt">armor 0</span></div>
       <div id="buffs"></div>
     </div>
     <div id="weapon"><div id="wname">Slap</div><div id="wdesc">Grab a rod from the center</div><div id="ammo"></div></div>
     <div id="help">
-      <b>WASD</b> move · <b>Mouse</b> aim<br>
+      <b>WASD</b> move · <b>Mouse</b> look & aim<br>
       <b>Click</b> attack · <b>Space</b> dash<br>
       <b>R</b>/<b>Right click</b> cast & reel<br>
       <b>E</b> swap for a fish on the ground<br>
-      <b>Esc</b> pause · <b>M</b> sound
+      <b>Arrows</b> turn camera · <b>Esc</b> pause · <b>M</b> sound
     </div>
   </div>
 </div>
@@ -174,6 +185,7 @@
 <div id="touch" class="hidden">
   <div class="stick" id="stickL"><i></i></div>
   <div class="stick" id="stickR"><i></i></div>
+  <button class="tbtn" id="tFire">HIT</button>
   <button class="tbtn" id="tFish">CAST</button>
   <button class="tbtn" id="tDash">DASH</button>
   <button class="tbtn" id="tSwap">SWAP</button>
@@ -191,10 +203,10 @@
     <button class="big play" id="btnSolo">Play vs bots</button>
     <button class="big alt" id="btnOnline">Play online with friends</button>
     <div class="controls">
-      <b>WASD</b> move &nbsp; <b>Mouse</b> aim &nbsp; <b>Click</b> attack &nbsp; (on a phone: left stick moves, right stick aims and fires)<br>
+      <b>WASD</b> move &nbsp; <b>Mouse</b> look and aim &nbsp; <b>Click</b> attack &nbsp; (on a phone: left stick moves, right stick looks, HIT attacks)<br>
       <b>R</b> or <b>Right click</b> cast, then again to reel in<br>
       <b>Space</b> dash (also bails out of fishing) &nbsp; <b>E</b> swap fish<br>
-      Leave the line in longer for rarer fish. Pier tips are deep water: faster depth, but nowhere to run. Getting hit snaps your line.
+      Every hit raises your damage %, and the higher it is the farther you fly. Land in the water and you can swim back. Fly past the ring of buoys and you're knocked out. Leave the line in longer for rarer fish; getting hit snaps it.
     </div>
   </div>
 </div>
@@ -252,18 +264,25 @@
     playerSpeed: 7.2,
     heavySpeed: 6.0,
     playerRadius: 0.55,
-    maxHp: 100,
+    healPct: 30, // Fish & Chips heals this much damage %
     maxArmor: 50,
     respawnSeconds: 5,
     spawnInvuln: 1.5,
     dashSpeed: 19,
     dashTime: 0.16,
     dashCooldown: 1.4,
-    kbScale: 0.7, // global knockback tuning
+    kbScale: 1.0, // global knockback tuning
     dmgScale: 1, // global damage tuning
     usesScale: 1, // global ammo tuning
-    kbDamageScale: 1.0, // knockback multiplier = 1 + (1 - hp/100) * this
-    creditWindow: 6, // seconds a hit counts for a ring-out credit
+    pctScale: 100, // Smash-style: launch power = kb * kbScale * (1 + damage% / pctScale)
+    launchUp: 0.45, // vertical share of a launch
+    airThreshold: 6, // launches weaker than this just slide you along the ground
+    gravity: 30,
+    blastRadius: 40, // fly or swim past this ring and you're KO'd
+    waterY: -0.9,
+    swimSpeed: 3.4,
+    climbTime: 0.5,
+    creditWindow: 8, // seconds a hit counts for KO credit
     rackRespawn: 6,
     fishMinBite: 2.5,
     reelTime: 0.6,
@@ -275,7 +294,6 @@
     pelicanEvery: 40,
     pelicanJitter: 10,
     groundFishLife: 20,
-    fallTime: 0.8,
     biteWindow: 0.55, // reel while the bobber is pulled under for a perfect catch
     perfectBonus: 1.25, // perfect catch ammo multiplier
   };
@@ -398,6 +416,22 @@
   }
 
 
+  // Closest point on the pier to (x, z), used for swimming back and climbing out.
+  function nearestPlatformPoint(x, z) {
+    const rects = [
+      [-MAP.coreHalf, MAP.coreHalf, -MAP.coreHalf, MAP.coreHalf],
+      [-MAP.pierHalf, MAP.pierHalf, -MAP.pierLen, MAP.pierLen],
+      [-MAP.pierLen, MAP.pierLen, -MAP.pierHalf, MAP.pierHalf],
+    ];
+    let best = null, bd = 1e9;
+    for (const [x0, x1, z0, z1] of rects) {
+      const px = clamp(x, x0, x1), pz = clamp(z, z0, z1);
+      const d = len(px - x, pz - z);
+      if (d < bd) { bd = d; best = { x: px, z: pz }; }
+    }
+    return best;
+  }
+
   // Plain walking step (no dash or knockback). Mirrors integrate() so online clients can predict their own movement.
   function walkStep(p, mx, mz, dt) {
     const C = CFG;
@@ -411,8 +445,9 @@
     p.vz += (mz * speed - p.vz) * k;
     const m = C.playerRadius * 0.7;
     let nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
-    if (!onPlatform(nx, p.z, m)) { nx = p.x; p.vx = 0; }
-    if (!onPlatform(nx, nz, m)) { nz = p.z; p.vz = 0; }
+    const mm = onPlatform(p.x, p.z, m) ? m : 0.05;
+    if (!onPlatform(nx, p.z, mm)) { nx = p.x; p.vx = 0; }
+    if (!onPlatform(nx, nz, mm)) { nz = p.z; p.vz = 0; }
     for (const o of MAP.obstacles.concat([MAP.rack])) {
       const dx = nx - o.x, dz = nz - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
       if (d < min && d > 0.0001) { nx = o.x + (dx / d) * min; nz = o.z + (dz / d) * min; }
@@ -470,7 +505,7 @@
       const p = {
         id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal',
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
-        hp: C.maxHp, armor: 0, alive: false, respawnT: 0.5, falling: 0, invulnT: 0,
+        pct: 0, armor: 0, alive: false, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0,
         fishing: null, bubble: 0, lure: 0,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
@@ -530,7 +565,7 @@
         if (d > bestD) { bestD = d; best = s; }
       }
       Object.assign(p, {
-        x: best[0], z: best[1], y: 0, vx: 0, vz: 0, hp: C.maxHp, alive: true, falling: 0,
+        x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, pct: 0, alive: true, air: false, swim: false, climbT: 0,
         invulnT: C.spawnInvuln, kbT: 0, slowT: 0, stunT: 0, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
       });
       const l = len(-p.x, -p.z) || 1;
@@ -551,11 +586,7 @@
       p.deaths++;
       p.alive = false;
       p.respawnT = C.respawnSeconds;
-      // Dropped loot: KOs on the pier leave your fish (and rod) behind for others to steal.
-      if (cause !== 'water') {
-        if (p.weapon && p.weapon.uses > 0) S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x, z: p.z, life: C.groundFishLife });
-        if (p.hasRod) S.items.push({ id: uid(), kind: 'rod', x: p.x + 0.6, z: p.z + 0.3, life: C.groundFishLife });
-      }
+      // whatever you were carrying is lost at sea
       p.weapon = null;
       p.hasRod = false;
       p.fishing = null;
@@ -564,7 +595,7 @@
     }
 
     function hit(t, attacker, dmg, dirx, dirz, kb, extra) {
-      if (!t.alive || t.falling || t.invulnT > 0) return false;
+      if (!t.alive || t.invulnT > 0) return false;
       if (attacker && attacker.id === t.id) return false;
       if (t.fishing && t.bubble > 0) {
         t.bubble--;
@@ -579,17 +610,31 @@
       const absorbed = Math.min(t.armor, dmg);
       t.armor -= absorbed;
       dmg -= absorbed;
-      t.hp -= dmg;
-      const mult = C.kbScale * (1 + (1 - clamp(t.hp, 0, C.maxHp) / C.maxHp) * C.kbDamageScale);
+      t.pct += dmg;
+      // Smash-style: the more damage you've taken, the harder you fly
+      const power = kb * C.kbScale * (1 + t.pct / C.pctScale) * (t.armor > 0 ? 0.8 : 1);
       const l = len(dirx, dirz) || 1;
-      t.vx += (dirx / l) * kb * mult;
-      t.vz += (dirz / l) * kb * mult;
-      t.kbT = Math.max(t.kbT, 0.18 + kb * 0.012 * mult);
+      const dx = dirx / l, dz = dirz / l;
+      if (t.climbT > 0) { t.climbT = 0; t.swim = true; t.y = C.waterY; }
+      if (t.swim) {
+        t.vx += dx * power * 0.6; t.vz += dz * power * 0.6;
+        t.kbT = Math.max(t.kbT, 0.35);
+      } else if (power > C.airThreshold) {
+        t.vx = dx * power; t.vz = dz * power;
+        t.vy = power * C.launchUp + 2;
+        t.y = Math.max(t.y, 0.01);
+        t.air = true;
+        t.kbT = Math.max(t.kbT, 0.15 + power * 0.015);
+        if (t.fishing) t.fishing = null;
+        emit('launch', { id: t.id, power: Math.round(power) });
+      } else {
+        t.vx += dx * power; t.vz += dz * power;
+        t.kbT = Math.max(t.kbT, 0.12 + power * 0.012);
+      }
       if (extra && extra.slow) t.slowT = Math.max(t.slowT, extra.slow);
       if (extra && extra.stun) t.stunT = Math.max(t.stunT, extra.stun);
       if (attacker) { t.lastHitBy = attacker.id; t.lastHitT = S.time; }
-      emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z });
-      if (t.hp <= 0) kill(t, 'hp');
+      emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z, y: t.y, pct: Math.round(t.pct) });
       return true;
     }
 
@@ -615,7 +660,7 @@
       if (w.kind === 'melee' || w.kind === 'slam') {
         if (w.lunge) { p.dashT = 0.14; p.vx = ax * w.lunge; p.vz = az * w.lunge; }
         for (const t of Object.values(S.players)) {
-          if (t === p || !t.alive) continue;
+          if (t === p || !t.alive || Math.abs(t.y - p.y) > 2) continue;
           if (w.kind === 'slam') {
             const cx = p.x + ax * w.reach, cz = p.z + az * w.reach;
             if (len(t.x - cx, t.z - cz) < w.aoe + C.playerRadius) hit(t, p, w.dmg, t.x - p.x, t.z - p.z, w.kb);
@@ -639,7 +684,7 @@
       } else if (w.kind === 'zap') {
         let first = null, bestD = 999;
         for (const t of Object.values(S.players)) {
-          if (t === p || !t.alive || t.falling) continue;
+          if (t === p || !t.alive) continue;
           const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz);
           if (d < w.range && (dx * ax + dz * az) / d > w.cone && d < bestD) { bestD = d; first = t; }
         }
@@ -696,7 +741,7 @@
         if (it.kind === 'rod') { if (!p.hasRod) { p.hasRod = true; take = true; } }
         else if (it.kind === 'fish') {
           if (!p.weapon || inp.use) { if (p.weapon && p.weapon.uses > 0) S.items.push({ id: uid(), kind: 'fish', weapon: p.weapon.id, uses: p.weapon.uses, x: p.x, z: p.z, life: C.groundFishLife }); giveWeapon(p, it.weapon, it.uses); take = true; inp.use = false; }
-        } else if (it.kind === 'heal') { if (p.hp < C.maxHp) { p.hp = Math.min(C.maxHp, p.hp + 45); take = true; } }
+        } else if (it.kind === 'heal') { if (p.pct > 0) { p.pct = Math.max(0, p.pct - C.healPct); take = true; } }
         else if (it.kind === 'armor') { if (p.armor < C.maxArmor) { p.armor = C.maxArmor; take = true; } }
         else if (it.kind === 'bubble') { p.bubble = 2; take = true; }
         else if (it.kind === 'lure') { p.lure = 2; take = true; }
@@ -722,11 +767,14 @@
         }
         return;
       }
-      if (p.falling > 0) {
-        p.falling += dt;
-        p.y -= dt * (3 + p.falling * 14);
-        p.x += p.vx * dt; p.z += p.vz * dt;
-        if (p.falling >= C.fallTime) { emit('splash', { id: p.id, x: p.x, z: p.z }); kill(p, 'water'); }
+      if (p.climbT > 0) {
+        p.climbT = Math.max(0, p.climbT - dt);
+        p.invulnT = Math.max(0, p.invulnT - dt);
+        p.y = C.waterY * Math.max(0, p.climbT / C.climbTime);
+        if (p.climbT === 0) {
+          p.x = p.cx; p.z = p.cz; p.y = 0; p.vx = p.vz = p.vy = 0; p.swim = false; p.air = false;
+          emit('climbed', { id: p.id });
+        }
         return;
       }
       p.invulnT = Math.max(0, p.invulnT - dt);
@@ -740,6 +788,15 @@
 
       const stunned = p.stunT > 0;
       if (!stunned && (inp.ax || inp.az)) { p.ax = inp.ax; p.az = inp.az; }
+
+      // in the water you can only swim back; in the air you can still attack once out of hitstun
+      if (p.swim || p.air) {
+        inp.fish = false; inp.dash = false; inp.use = false;
+        if (p.air && inp.fire && p.cd <= 0 && p.kbT <= 0 && !stunned) useWeapon(p, inp);
+        integrate(p, dt, stunned ? 0 : inp.mx, stunned ? 0 : inp.mz);
+        checkBlast(p);
+        return;
+      }
 
       // ---- fishing
       if (p.fishing) {
@@ -807,6 +864,14 @@
       const ml = len(mx, mz);
       if (ml > 1) { mx /= ml; mz /= ml; }
       integrate(p, dt, mx, mz);
+      checkBlast(p);
+    }
+
+    function checkBlast(p) {
+      if (p.alive && len(p.x, p.z) > C.blastRadius) {
+        emit('blast', { id: p.id, x: p.x, z: p.z });
+        kill(p, 'blast');
+      }
     }
 
     function doDash(p, inp) {
@@ -823,6 +888,62 @@
       const heavy = p.weapon && WEAPONS[p.weapon.id].heavy;
       let speed = heavy ? C.heavySpeed : C.playerSpeed;
       if (p.slowT > 0) speed *= 0.6;
+      const ml = len(mx, mz);
+      if (ml > 1) { mx /= ml; mz /= ml; }
+      if (p.swim) {
+        // swim back to the pier; touching it starts a short climb
+        const k = 1 - Math.exp(-(p.kbT > 0 ? 1.2 : 4) * dt);
+        p.vx += (mx * C.swimSpeed - p.vx) * k;
+        p.vz += (mz * C.swimSpeed - p.vz) * k;
+        const nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
+        p.y = C.waterY;
+        const np = nearestPlatformPoint(nx, nz);
+        if (p.kbT <= 0 && (onPlatformPoint(nx, nz) || len(np.x - nx, np.z - nz) < 0.45)) {
+          const l = len(np.x - p.x, np.z - p.z) || 1;
+          p.cx = np.x + ((np.x - p.x) / l) * 0.8;
+          p.cz = np.z + ((np.z - p.z) / l) * 0.8;
+          // make sure we land comfortably on the boards, nudging toward the middle if needed
+          for (let i = 0; i < 20 && !onPlatform(p.cx, p.cz, 0.6); i++) {
+            const cl = len(p.cx, p.cz) || 1;
+            p.cx -= (p.cx / cl) * 0.3; p.cz -= (p.cz / cl) * 0.3;
+          }
+          p.climbT = C.climbTime;
+          p.vx = p.vz = 0;
+          emit('climb', { id: p.id });
+          return;
+        }
+        if (!onPlatformPoint(nx, nz)) { p.x = nx; p.z = nz; }
+        return;
+      }
+      if (p.air) {
+        // a little air control (DI); otherwise ballistic
+        const ctrl = p.kbT > 0 ? 3 : 10;
+        p.vx += mx * ctrl * dt; p.vz += mz * ctrl * dt;
+        p.vx *= Math.exp(-0.35 * dt); p.vz *= Math.exp(-0.35 * dt);
+        if (p.kbT <= 0) {
+          const hs = len(p.vx, p.vz);
+          if (hs > speed && mx * p.vx + mz * p.vz <= 0) { p.vx *= Math.exp(-2 * dt); p.vz *= Math.exp(-2 * dt); }
+        }
+        p.vy -= C.gravity * dt;
+        p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt;
+        if (p.y < 1.4) {
+          for (const o of MAP.obstacles.concat([MAP.rack])) {
+            const dx = p.x - o.x, dz = p.z - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
+            if (d < min && d > 0.0001) { p.x = o.x + (dx / d) * min; p.z = o.z + (dz / d) * min; }
+          }
+        }
+        if (p.y <= 0 && p.vy < 0 && onPlatformPoint(p.x, p.z) && p.y > -0.5) {
+          p.y = 0; p.vy = 0; p.air = false;
+          p.vx *= 0.3; p.vz *= 0.3;
+          emit('land', { id: p.id, x: p.x, z: p.z, player: true });
+        } else if (p.y <= C.waterY) {
+          p.y = C.waterY; p.vy = 0; p.air = false; p.swim = true;
+          p.vx *= 0.3; p.vz *= 0.3;
+          p.kbT = Math.min(p.kbT, 0.2);
+          emit('splash', { id: p.id, x: p.x, z: p.z });
+        }
+        return;
+      }
       if (p.dashT > 0) {
         // keep dash velocity
       } else if (p.kbT > 0) {
@@ -839,8 +960,9 @@
       const m = C.playerRadius * 0.7;
       let nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
       if (!free) {
-        if (!onPlatform(nx, p.z, m)) { nx = p.x; p.vx = 0; }
-        if (!onPlatform(nx, nz, m)) { nz = p.z; p.vz = 0; }
+        const mm = onPlatform(p.x, p.z, m) ? m : 0.05;
+        if (!onPlatform(nx, p.z, mm)) { nx = p.x; p.vx = 0; }
+        if (!onPlatform(nx, nz, mm)) { nz = p.z; p.vz = 0; }
       }
       // obstacles
       for (const o of MAP.obstacles.concat([MAP.rack])) {
@@ -849,14 +971,15 @@
       }
       p.x = nx; p.z = nz;
       if (!onPlatform(p.x, p.z, 0)) {
-        p.falling = 0.0001;
+        // slid off the edge: drop toward the water
+        p.air = true; p.vy = 0; p.y = 0;
         p.fishing = null;
         emit('fall', { id: p.id });
       }
     }
 
     function separatePlayers() {
-      const ps = Object.values(S.players).filter((p) => p.alive && !p.falling);
+      const ps = Object.values(S.players).filter((p) => p.alive && !p.air && !p.swim && p.climbT <= 0);
       for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
         const a = ps[i], b = ps[j];
         const dx = b.x - a.x, dz = b.z - a.z, d = len(dx, dz), min = C.playerRadius * 2;
@@ -895,7 +1018,7 @@
         }
         if (!dead) {
           for (const t of Object.values(S.players)) {
-            if (t.id === pr.owner || !t.alive || t.falling || pr.hitIds.includes(t.id)) continue;
+            if (t.id === pr.owner || !t.alive || t.y > 2.2 || t.climbT > 0 || pr.hitIds.includes(t.id)) continue;
             if (len(t.x - pr.x, t.z - pr.z) < C.playerRadius + pr.rad) {
               if (w.kind === 'rocket') { dead = true; break; }
               hit(t, owner, w.dmg, pr.vx, pr.vz, w.kb, { slow: w.slow });
@@ -974,7 +1097,7 @@
         phase: S.phase, time: r2(S.time), roundLeft: r2(S.roundLeft), roundSeconds: S.roundSeconds, overtime: !!S.overtime, winner: S.winner,
         players: Object.values(S.players).map((p) => ({
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
-          hp: Math.round(p.hp), armor: Math.round(p.armor), alive: p.alive, falling: p.falling > 0, respawnT: r2(p.respawnT), invulnT: r2(p.invulnT),
+          pct: Math.round(p.pct), armor: Math.round(p.armor), alive: p.alive, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: r2(p.respawnT), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
           bubble: p.bubble, lure: p.lure, kos: p.kos, deaths: p.deaths, caught: p.caught,
@@ -1022,11 +1145,19 @@
     const b = p.brain;
     const skill = BOT_SKILL[p.difficulty] || BOT_SKILL.normal;
     const out = { mx: 0, mz: 0, ax: p.ax, az: p.az, fire: false, dash: false, fish: false, use: false, aimDist: 8 };
-    if (!p.alive || p.falling) { b.spot = null; return out; }
+    if (!p.alive || p.climbT > 0) { b.spot = null; return out; }
+    if (p.swim || p.air) {
+      // swim (or drift) back toward the nearest bit of pier, aiming for the middle when airborne
+      b.spot = null;
+      const t = p.swim ? nearestPlatformPoint(p.x, p.z) : { x: 0, z: 0 };
+      const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz) || 1;
+      out.mx = dx / d; out.mz = dz / d;
+      return out;
+    }
 
     let enemy = null, ed = 999;
     for (const o of Object.values(S.players)) {
-      if (o === p || !o.alive || o.falling) continue;
+      if (o === p || !o.alive || o.air || o.climbT > 0) continue;
       const d = len(o.x - p.x, o.z - p.z);
       if (d < ed) { ed = d; enemy = o; }
     }
@@ -1081,7 +1212,7 @@
       if (it.y > 0.5) continue;
       const d = len(it.x - p.x, it.z - p.z);
       let v = 0;
-      if (it.kind === 'heal') v = p.hp < 70 ? 10 : 0;
+      if (it.kind === 'heal') v = p.pct > 40 ? 10 : 0;
       else if (it.kind === 'armor') v = p.armor < 25 ? 8 : 0;
       else if (it.kind === 'cooler') v = 12;
       else if (it.kind === 'fish') v = p.weapon ? 0 : 9;
@@ -1112,7 +1243,7 @@
       else if (ed < want - 1.5 && !melee) { out.mx = -tx / tl; out.mz = -tz / tl; }
       else { out.mx = (-tz / tl) * b.strafe * 0.7; out.mz = (tx / tl) * b.strafe * 0.7; }
       // don't hug the edge: drift back toward the middle when near water
-      if (!onPlatform(p.x, p.z, 2.2) || !onPlatform(p.x + out.mx * 1.5, p.z + out.mz * 1.5, 0.6)) {
+      if (!onPlatform(p.x + out.mx * 1.5, p.z + out.mz * 1.5, 0.8)) {
         const home = navTarget(p, 0, 0);
         const hx = home.x - p.x, hz = home.z - p.z, hl = len(hx, hz) || 1;
         out.mx = out.mx * 0.4 + (hx / hl) * 0.9; out.mz = out.mz * 0.4 + (hz / hl) * 0.9;
@@ -1159,7 +1290,7 @@
     return out;
   }
 
-  return { walkStep, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { walkStep, nearestPlatformPoint, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });
 
 </script>
@@ -1303,6 +1434,16 @@ for (const [x, z] of buoySpots) {
   scene.add(b);
   buoys.push(b);
 }
+// a ring of little buoys marks the edge of the map: get launched past it and you're out
+for (let i = 0; i < 48; i++) {
+  const a = (i / 48) * Math.PI * 2;
+  const b = mesh(new THREE.SphereGeometry(0.35, 8, 6), i % 2 ? '#ffd23f' : '#ff5a5f');
+  b.position.set(Math.cos(a) * CFG.blastRadius, WATER_Y, Math.sin(a) * CFG.blastRadius);
+  b.userData.phase = i;
+  scene.add(b);
+  buoys.push(b);
+}
+
 // "DEEP" signs at the pier tips
 function makeSign(text, x, z, rotY) {
   const c = document.createElement('canvas');
@@ -1602,7 +1743,7 @@ function makePlayer(color) {
   armorShell.rotation.x = -1.2;
   armorShell.visible = false;
   bodyG.add(armorShell);
-  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, fishId: null, fishMesh: null, walk: 0 };
+  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, ring, fishId: null, fishMesh: null, walk: 0 };
   return root;
 }
 
@@ -1780,7 +1921,7 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; });
 canvas.addEventListener('mousemove', (e) => { mouseNDC.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); });
-canvas.addEventListener('mousedown', (e) => { ac(); if (e.button === 0) mouseDown = true; if (e.button === 2) input.fish = true; });
+canvas.addEventListener('mousedown', (e) => { ac(); if (playing && !locked && !touchState.on) requestLock(); if (e.button === 0) mouseDown = true; if (e.button === 2) input.fish = true; });
 window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 const raycaster = new THREE.Raycaster();
@@ -1788,7 +1929,7 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const aimPoint = new THREE.Vector3();
 
 // touch: left stick moves, right stick aims and fires when pushed past the dead zone
-const touchState = { on: false, mx: 0, mz: 0, ax: 0, az: 0, aiming: false, mag: 0 };
+const touchState = { on: false, mx: 0, mz: 0, lookX: 0, lookY: 0, firing: false };
 function setupStick(el, onMove) {
   const knob = el.querySelector('i');
   let pid = null;
@@ -1815,38 +1956,66 @@ function enableTouch() {
 window.addEventListener('touchstart', enableTouch, { passive: true, once: true });
 if (matchMedia('(pointer: coarse)').matches) enableTouch();
 setupStick(document.getElementById('stickL'), (x, y) => { touchState.mx = x; touchState.mz = y; });
-setupStick(document.getElementById('stickR'), (x, y, active) => {
-  const m = Math.hypot(x, y);
-  touchState.mag = m;
-  if (m > 0.2) { touchState.ax = x / m; touchState.az = y / m; }
-  touchState.aiming = active && m > 0.35;
+setupStick(document.getElementById('stickR'), (x, y) => {
+  touchState.lookX = Math.abs(x) > 0.12 ? x : 0;
+  touchState.lookY = Math.abs(y) > 0.12 ? y : 0;
 });
+{
+  const fb = document.getElementById('tFire');
+  fb.addEventListener('pointerdown', (e) => { e.preventDefault(); ac(); touchState.firing = true; });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => fb.addEventListener(ev, () => (touchState.firing = false)));
+}
 const tap = (id, fn) => document.getElementById(id).addEventListener('pointerdown', (e) => { e.preventDefault(); ac(); fn(); });
 tap('tFish', () => (input.fish = true));
 tap('tDash', () => (input.dash = true));
 tap('tSwap', () => (input.use = true));
 tap('tPause', () => togglePause());
 
-function readInput(me) {
-  if (touchState.on && !mouseDown && !keys['w'] && !keys['a'] && !keys['s'] && !keys['d']) {
-    input.mx = Math.abs(touchState.mx) > 0.15 ? touchState.mx : 0;
-    input.mz = Math.abs(touchState.mz) > 0.15 ? touchState.mz : 0;
-    if (touchState.ax || touchState.az) { input.ax = touchState.ax; input.az = touchState.az; input.aimDist = 3 + touchState.mag * 10; }
-    input.fire = touchState.aiming;
-    return;
-  }
-  input.mx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
-  input.mz = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0);
-  input.fire = mouseDown;
+// Over-the-shoulder camera: yaw/pitch come from the mouse (pointer lock), the right stick, or the arrow keys.
+const cam = { yaw: 0, pitch: 0.32, dist: 7, target: new THREE.Vector3(), init: false };
+function camForward() { return { x: Math.sin(cam.yaw), z: Math.cos(cam.yaw) }; }
+function readInput(me, dt) {
+  const touching = touchState.on && !mouseDown && !keys['w'] && !keys['a'] && !keys['s'] && !keys['d'];
+  // rotate the camera
+  if (keys['arrowleft']) cam.yaw += 2.4 * dt;
+  if (keys['arrowright']) cam.yaw -= 2.4 * dt;
+  if (keys['arrowup']) cam.pitch -= 1.2 * dt;
+  if (keys['arrowdown']) cam.pitch += 1.2 * dt;
+  if (touching) { cam.yaw -= touchState.lookX * 2.8 * dt; cam.pitch += touchState.lookY * 1.4 * dt; }
+  cam.pitch = Math.max(-0.2, Math.min(1.15, cam.pitch));
+  const f = camForward(), r = { x: -f.z, z: f.x };
+  let fw, st;
+  if (touching) { fw = -touchState.mz; st = touchState.mx; if (Math.hypot(fw, st) < 0.15) fw = st = 0; }
+  else { fw = (keys['w'] ? 1 : 0) - (keys['s'] ? 1 : 0); st = (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0); }
+  input.mx = f.x * fw + r.x * st;
+  input.mz = f.z * fw + r.z * st;
+  input.fire = touching ? touchState.firing : mouseDown;
+  // aim where the crosshair points: a ray from the camera through the middle of the screen
   if (me) {
-    raycaster.setFromCamera(mouseNDC, camera);
-    if (raycaster.ray.intersectPlane(groundPlane, aimPoint)) {
-      const dx = aimPoint.x - me.x, dz = aimPoint.z - me.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 0.01) { input.ax = dx / d; input.az = dz / d; input.aimDist = d; }
-    }
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    let px, pz;
+    if (raycaster.ray.intersectPlane(groundPlane, aimPoint) && aimPoint.distanceTo(camera.position) < 45) { px = aimPoint.x; pz = aimPoint.z; }
+    else { const far = raycaster.ray.at(30, new THREE.Vector3()); px = far.x; pz = far.z; }
+    const dx = px - me.x, dz = pz - me.z, d = Math.hypot(dx, dz);
+    if (d > 0.5) { input.ax = dx / d; input.az = dz / d; input.aimDist = d; }
+    else { input.ax = f.x; input.az = f.z; input.aimDist = 2; }
   }
 }
+// pointer lock for mouse look
+let locked = false;
+document.addEventListener('pointerlockchange', () => {
+  const was = locked;
+  locked = document.pointerLockElement === canvas;
+  if (was && !locked && playing && !touchState.on && !paused && $('pause').classList.contains('hidden')) togglePause();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!playing || touchState.on) return;
+  if (locked || mouseDown) {
+    cam.yaw -= e.movementX * 0.0026;
+    cam.pitch += e.movementY * 0.0022;
+  }
+});
+function requestLock() { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) {} }
 
 // ------------------------------------------------------------------ game sources
 let source = null; // { tick(dt), myId, prev, curr, alpha, events[], sendInput(inp), stop() }
@@ -1924,7 +2093,7 @@ function netSource(url, room, name, onLobby, onClose) {
       if (msg.e && msg.e.length) src.events.push(...msg.e);
       // client-side prediction for our own walking; anything else (dash, knockback, fishing) follows the server
       const me = msg.s.players.find((p) => p.id === src.myId);
-      if (me && me.alive && !me.falling && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
+      if (me && me.alive && !me.air && !me.swim && me.climbT <= 0 && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
         const np = { x: me.x, z: me.z, vx: me.vx, vz: me.vz, weapon: me.weapon, slowT: me.slowT };
         while (hist.length && hist[0].seq <= me.ack) hist.shift();
         for (const h of hist) Sim.walkStep(np, h.mx, h.mz, STEP);
@@ -1949,11 +2118,12 @@ const markers = new Map(); // pelican drop target markers
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 function interp(prevList, cur, alpha) {
-  if (!prevList) return { x: cur.x, z: cur.z };
+  const y0 = cur.y || 0;
+  if (!prevList) return { x: cur.x, z: cur.z, y: y0 };
   const p = prevList.find((e) => e.id === cur.id);
-  if (!p) return { x: cur.x, z: cur.z };
-  if (Math.hypot(p.x - cur.x, p.z - cur.z) > 6) return { x: cur.x, z: cur.z };
-  return { x: lerp(p.x, cur.x, alpha), z: lerp(p.z, cur.z, alpha) };
+  if (!p) return { x: cur.x, z: cur.z, y: y0 };
+  if (Math.hypot(p.x - cur.x, p.z - cur.z) > 8) return { x: cur.x, z: cur.z, y: y0 };
+  return { x: lerp(p.x, cur.x, alpha), z: lerp(p.z, cur.z, alpha), y: lerp(p.y || 0, y0, alpha) };
 }
 
 function syncPlayers(s, prev, alpha, t, dt) {
@@ -1966,7 +2136,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
       scene.add(obj);
       const tag = document.createElement('div');
       tag.className = 'tag';
-      tag.innerHTML = `<div class="nm"></div><div class="bar"><i></i><b></b></div><div class="fishing hidden"></div>`;
+      tag.innerHTML = `<div class="nm"></div><div class="pc"></div><div class="fishing hidden"></div>`;
       tagsEl.appendChild(tag);
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new Array(10).fill(0).map(() => new THREE.Vector3())), new THREE.LineBasicMaterial({ color: '#ffffff' }));
       line.frustumCulled = false;
@@ -1979,19 +2149,22 @@ function syncPlayers(s, prev, alpha, t, dt) {
       tierRing.rotation.x = -Math.PI / 2;
       bobber.add(tierRing);
       scene.add(bobber);
-      v = { obj, tag, line, bobber, tierRing, lastHp: p.hp, x: p.x, z: p.z };
+      v = { obj, tag, line, bobber, tierRing, x: p.x, z: p.z, y: 0, rippleT: 0 };
       views.players.set(p.id, v);
     }
     const o = v.obj, u = o.userData;
     let pos = interp(prev && prev.players, p, alpha);
     if (p.id === source.myId && source.pred) {
       source.off.x *= Math.exp(-dt * 10); source.off.z *= Math.exp(-dt * 10);
-      pos = { x: source.pred.x + source.off.x, z: source.pred.z + source.off.z };
+      pos = { x: source.pred.x + source.off.x, z: source.pred.z + source.off.z, y: 0 };
     }
     const moved = Math.hypot(pos.x - v.x, pos.z - v.z);
-    v.x = pos.x; v.z = pos.z;
-    o.visible = p.alive || p.falling;
-    o.position.set(pos.x, p.falling ? p.y : 0, pos.z);
+    v.x = pos.x; v.z = pos.z; v.y = pos.y;
+    o.visible = p.alive;
+    // swimmers sit low in the water with just head and shoulders showing
+    const swimY = WATER_Y - 0.75 + waveH(pos.x, pos.z, t) * 0.6;
+    o.position.set(pos.x, p.swim ? swimY : p.climbT > 0 ? Math.max(swimY, pos.y) : pos.y, pos.z);
+    u.ring.visible = !p.swim && !p.air;
     const yaw = Math.atan2(p.ax, p.az);
     let dy = yaw - o.rotation.y;
     while (dy > Math.PI) dy -= Math.PI * 2;
@@ -2004,9 +2177,14 @@ function syncPlayers(s, prev, alpha, t, dt) {
     u.bodyG.rotation.z = Math.sin(u.walk) * 0.12 * sp;
     u.footL.position.z = 0.03 + Math.sin(u.walk) * 0.22 * sp;
     u.footR.position.z = 0.03 - Math.sin(u.walk) * 0.22 * sp;
-    u.bodyG.rotation.x = p.dashT > 0 ? 0.5 : p.stunT > 0 ? Math.sin(t * 30) * 0.15 : 0;
-    if (p.falling) o.rotation.z += dt * 8;
-    else o.rotation.z = 0;
+    if (!(p.air && p.kbT > 0)) u.bodyG.rotation.x = p.dashT > 0 ? 0.5 : p.stunT > 0 ? Math.sin(t * 30) * 0.15 : p.swim ? 0.25 : 0;
+    // tumble while launched, bob while swimming
+    if (p.air && p.kbT > 0) { u.bodyG.rotation.x += dt * 14; if (Math.random() < 0.6) burst(pos.x, pos.y + 0.8, pos.z, '#ffffff', 1, 0.5, 0.22, 0.5, 0); }
+    if (p.swim) {
+      u.bodyG.position.y = Math.sin(t * 4) * 0.08;
+      v.rippleT -= dt;
+      if (v.rippleT <= 0) { v.rippleT = 0.6; ringFx(pos.x, pos.z, 1.6, '#ffffff', WATER_Y + 0.15); }
+    }
     // flashing when invulnerable
     u.bodyG.visible = !(p.invulnT > 0 && Math.floor(t * 12) % 2 === 0);
     u.arrow.visible = p.id === source.myId && p.alive;
@@ -2065,8 +2243,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
       v.line.geometry.attributes.position.needsUpdate = true;
     }
     // tag
-    const head = new THREE.Vector3(pos.x, 2.4, pos.z).project(camera);
-    const vis = o.visible && head.z < 1;
+    const head = new THREE.Vector3(pos.x, pos.y + 2.4, pos.z).project(camera);
+    const vis = o.visible && head.z < 1 && p.id !== source.myId;
     v.tag.style.display = vis ? '' : 'none';
     if (vis) {
       v.tag.style.left = ((head.x + 1) / 2) * window.innerWidth + 'px';
@@ -2074,10 +2252,9 @@ function syncPlayers(s, prev, alpha, t, dt) {
       const nm = v.tag.querySelector('.nm');
       nm.textContent = p.name;
       nm.style.color = p.color;
-      v.tag.querySelector('.bar i').style.width = Math.max(0, p.hp) + '%';
-      const ab = v.tag.querySelector('.bar b');
-      ab.style.left = Math.max(0, p.hp) + '%';
-      ab.style.width = Math.min(100 - Math.max(0, p.hp), p.armor) + '%';
+      const pc = v.tag.querySelector('.pc');
+      pc.textContent = p.pct + '%' + (p.armor > 0 ? ' 🦀' : '');
+      pc.style.color = pctColor(p.pct);
       const fl = v.tag.querySelector('.fishing');
       if (p.fishing) {
         const tier = Sim.tierFor(p.fishing.depth);
@@ -2090,6 +2267,12 @@ function syncPlayers(s, prev, alpha, t, dt) {
   for (const [id, v] of views.players) {
     if (!seen.has(id)) { scene.remove(v.obj, v.line, v.bobber); v.tag.remove(); views.players.delete(id); }
   }
+}
+
+function pctColor(pct) {
+  const k = Math.min(1, pct / 160);
+  const c = new THREE.Color('#ffffff').lerp(new THREE.Color('#ffd23f'), Math.min(1, k * 2)).lerp(new THREE.Color('#ff3b3b'), Math.max(0, k * 2 - 1));
+  return '#' + c.getHexString();
 }
 
 const PROJ_LOOK = {
@@ -2269,8 +2452,9 @@ function updateHud(s, me) {
   }
   if (!me) return;
   if (touchState.on) $('tFish').textContent = me.fishing ? (me.fishing.depth < CFG.fishMinBite ? 'CANCEL' : 'REEL') : 'CAST';
-  $('hpbar').style.width = Math.max(0, me.hp) + '%';
-  $('hptxt').textContent = me.alive ? Math.max(0, me.hp) + ' hp' : 'respawning in ' + Math.ceil(me.respawnT);
+  $('pct').textContent = me.alive ? me.pct + '%' : 'KO';
+  $('pct').style.color = pctColor(me.pct);
+  $('pctsub').textContent = me.alive ? (me.swim ? 'Swim back to the pier!' : 'damage') : 'back in ' + Math.ceil(me.respawnT);
   $('armorbar').style.width = (me.armor / CFG.maxArmor) * 100 + '%';
   $('armortxt').textContent = me.armor > 0 ? '🦀 armor ' + me.armor : 'no armor';
   const buffs = [];
@@ -2301,7 +2485,8 @@ function updateHud(s, me) {
   const pr = $('prompt');
   let msg = '';
   if (me.alive && !me.fishing) {
-    if (!me.hasRod && !me.weapon) msg = 'Run to the rod rack in the middle';
+    if (me.swim) msg = 'Swim back and climb onto the pier';
+    else if (!me.hasRod && !me.weapon) msg = 'Run to the rod rack in the middle';
     else if (me.hasRod && Sim.waterDirection(me.x, me.z, me.ax, me.az)) msg = Sim.isPierTip(me.x, me.z) ? 'R to cast · DEEP WATER: sinks faster' : 'R to cast';
     const groundFish = source.curr.items.find((it) => it.kind === 'fish' && Math.hypot(it.x - me.x, it.z - me.z) < 1.4);
     if (groundFish && me.weapon) msg = 'E to swap for ' + WEAPONS[groundFish.weapon].name;
@@ -2379,6 +2564,7 @@ function handleEvents(s, me) {
       case 'boom': boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
       case 'zap': zapFx(e.pts); SFX.zap(); break;
       case 'splash': {
+        if (e.id === myId) toast('SPLASH! Swim back', '#9fe8ff', 1.4);
         burst(e.x, WATER_Y + 0.2, e.z, '#ffffff', e.small ? 6 : 18, e.small ? 4 : 7, 0.18, 0.7);
         burst(e.x, WATER_Y + 0.2, e.z, '#9fe8ff', e.small ? 4 : 12, 5, 0.15, 0.7);
         ringFx(e.x, e.z, 3, '#ffffff', WATER_Y + 0.2);
@@ -2386,16 +2572,19 @@ function handleEvents(s, me) {
         break;
       }
       case 'ko': {
-        const how = e.cause === 'water' ? 'splashed' : 'slapped out';
-        if (e.by) feed(`${nameOf(s, e.by)} ${e.cause === 'water' ? 'knocked' : 'KO\'d'} ${nameOf(s, e.id)}${e.cause === 'water' ? ' into the sea' : ''}`);
-        else feed(`${nameOf(s, e.id)} fell in 🌊`);
-        if (e.id === myId) toast(e.cause === 'water' ? 'SPLASH!' : 'KNOCKED OUT', '#ff5a5f', 2);
-        else if (e.by === myId) { toast('KO! 🐟', '#ffd23f', 1.4); }
-        if (e.cause !== 'water') burst(e.x, 1, e.z, '#ffffff', 14, 6, 0.16, 0.6);
-        SFX.ko();
-        void how;
+        if (e.by) feed(`${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥`);
+        else feed(`${nameOf(s, e.id)} drifted out to sea`);
+        if (e.id === myId) toast('KNOCKED OUT', '#ff5a5f', 2);
+        else if (e.by === myId) toast('KO! 🐟', '#ffd23f', 1.4);
+        const p = s.players.find((q) => q.id === e.id);
+        boomFx(e.x, e.z, 6);
+        burst(e.x, 2, e.z, p ? p.color : '#fff', 30, 12, 0.3, 1.2, 6);
+        shake = Math.max(shake, 0.5);
+        SFX.ko(); SFX.boom();
         break;
       }
+      case 'launch': if (e.power > 18) { SFX.slap(); tone(200, 0.35, 'sawtooth', 0.05, 3); } break;
+      case 'climb': if (e.id === myId) tone(500, 0.15, 'triangle', 0.06, 1.6); break;
       case 'catch': {
         const w = WEAPONS[e.w];
         const p = s.players.find((q) => q.id === e.id);
@@ -2430,12 +2619,13 @@ function handleEvents(s, me) {
         break;
       case 'rod': if (e.id === myId) { SFX.pickup(); toast('🎣 Got a rod! Head to an edge.', '#fff', 1.6); } break;
       case 'pelican': SFX.pelican(); feed(`🦩 Pelican inbound with <b style="color:${DROP_COLORS[e.kind]}">${DROPS[e.kind].name}</b>`); break;
-      case 'land': burst(e.x, 0.2, e.z, '#f5d78e', 6, 3, 0.12, 0.4); break;
+      case 'land': burst(e.x, 0.2, e.z, e.player ? '#ffffff' : '#f5d78e', 6, 3, 0.12, 0.4); break;
       case 'noedge': if (e.id === myId) toast('Get to the edge of the pier to cast', '#fff', 1.2); break;
       case 'norod': if (e.id === myId) toast('No rod! Grab one in the middle.', '#fff', 1.2); break;
       case 'dash': { const p = s.players.find((q) => q.id === e.id); if (p) burst(p.x, 0.3, p.z, '#ffffff', 4, 2, 0.12, 0.3, 2); break; }
       case 'overtime': toast('OVERTIME<small>next KO wins</small>', '#ffd23f', 2.5); break;
       case 'start': toast('GO FISH!', '#ffd23f', 1.5); break;
+      case 'spawn': if (e.id === myId) { const p = s.players.find((q) => q.id === e.id); if (p) cam.yaw = Math.atan2(p.ax, p.az); cam.pitch = 0.32; } break;
     }
   }
 }
@@ -2444,24 +2634,26 @@ function handleEvents(s, me) {
 const camTarget = new THREE.Vector3();
 let camInit = false;
 function updateCamera(me, dt, t) {
-  let tx = 0, tz = 4;
   if (me) {
-    tx = me.x + input.ax * Math.min(input.aimDist, 10) * 0.18;
-    tz = me.z + input.az * Math.min(input.aimDist, 10) * 0.18;
+    const want = new THREE.Vector3(me.x, (me.y || 0) + 1.7, me.z);
+    if (!cam.init) { cam.target.copy(want); cam.init = true; }
+    cam.target.lerp(want, Math.min(1, dt * 14));
   }
-  const want = new THREE.Vector3(tx, 0, tz);
-  if (!camInit) { camTarget.copy(want); camInit = true; }
-  camTarget.lerp(want, Math.min(1, dt * 5));
-  const portrait = window.innerWidth / window.innerHeight < 0.8;
-  camera.position.set(camTarget.x, portrait ? 26 : 19, camTarget.z + (portrait ? 14 : 13.5));
+  const f = camForward(), r = { x: -f.z, z: f.x };
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const dir = new THREE.Vector3(f.x * cp, -sp, f.z * cp);
+  const shoulder = 0.7;
+  camera.position.copy(cam.target).addScaledVector(dir, -cam.dist);
+  camera.position.x -= r.x * shoulder; camera.position.z -= r.z * shoulder;
+  camera.position.y = Math.max(camera.position.y, WATER_Y + 0.6);
   if (shake > 0) {
     camera.position.x += (Math.random() - 0.5) * shake;
     camera.position.y += (Math.random() - 0.5) * shake;
     shake = Math.max(0, shake - dt * 1.5);
   }
-  camera.lookAt(camTarget.x, 0, camTarget.z);
-  sun.position.set(camTarget.x + 18, 30, camTarget.z + 12);
-  sun.target.position.set(camTarget.x, 0, camTarget.z);
+  camera.lookAt(camera.position.clone().add(dir));
+  sun.position.set(cam.target.x + 18, 30, cam.target.z + 12);
+  sun.target.position.set(cam.target.x, 0, cam.target.z);
 }
 
 // ------------------------------------------------------------------ loop
@@ -2482,7 +2674,7 @@ function frame(now) {
     const s0 = source.curr;
     const me0 = s0 && s0.players.find((p) => p.id === source.myId);
     const v0 = views.players.get(source.myId);
-    readInput(me0 && v0 ? { x: v0.x, z: v0.z } : me0);
+    readInput(me0 && v0 ? { x: v0.x, z: v0.z } : me0, dt);
     source.tick(dt);
     const s = source.curr;
     if (s) {
@@ -2497,7 +2689,7 @@ function frame(now) {
       updateHud(s, me);
       drawMinimap(s, me);
       const mv = me && views.players.get(me.id);
-      updateCamera(me && (me.alive || me.falling) ? (mv ? { x: mv.x, z: mv.z } : me) : null, dt, t);
+      updateCamera(me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null, dt, t);
       if (s.phase === 'over' && !$('results').classList.contains('shown')) showResults(s);
       if (s.phase === 'play' && $('results').classList.contains('shown')) { $('results').classList.remove('shown'); $('results').classList.add('hidden'); }
     }
@@ -2544,6 +2736,8 @@ function beginPlay(src) {
   $('results').classList.remove('shown');
   hud.classList.remove('hidden');
   document.getElementById('touch').classList.toggle('hidden', !touchState.on);
+  cam.init = false;
+  if (!touchState.on) requestLock();
 }
 $('btnSolo').onclick = () => {
   ac();
@@ -2595,11 +2789,12 @@ function togglePause() {
   $('pause').classList.toggle('hidden', !($('pause').classList.contains('hidden')));
   if (!source.local) $('pause').querySelector('h1').textContent = 'MENU';
 }
-$('btnResume').onclick = () => { paused = false; $('pause').classList.add('hidden'); };
+$('btnResume').onclick = () => { paused = false; $('pause').classList.add('hidden'); if (!touchState.on) requestLock(); };
 $('btnQuit').onclick = () => { quitToMenu(); };
 function quitToMenu() {
   if (source) source.stop();
   source = null; playing = false; paused = false;
+  if (document.pointerLockElement) document.exitPointerLock();
   clearViews();
   hud.classList.add('hidden');
   document.getElementById('touch').classList.add('hidden');

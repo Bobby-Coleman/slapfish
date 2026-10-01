@@ -136,6 +136,16 @@ for (const [x, z] of buoySpots) {
   scene.add(b);
   buoys.push(b);
 }
+// a ring of little buoys marks the edge of the map: get launched past it and you're out
+for (let i = 0; i < 48; i++) {
+  const a = (i / 48) * Math.PI * 2;
+  const b = mesh(new THREE.SphereGeometry(0.35, 8, 6), i % 2 ? '#ffd23f' : '#ff5a5f');
+  b.position.set(Math.cos(a) * CFG.blastRadius, WATER_Y, Math.sin(a) * CFG.blastRadius);
+  b.userData.phase = i;
+  scene.add(b);
+  buoys.push(b);
+}
+
 // "DEEP" signs at the pier tips
 function makeSign(text, x, z, rotY) {
   const c = document.createElement('canvas');
@@ -435,7 +445,7 @@ function makePlayer(color) {
   armorShell.rotation.x = -1.2;
   armorShell.visible = false;
   bodyG.add(armorShell);
-  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, fishId: null, fishMesh: null, walk: 0 };
+  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, ring, fishId: null, fishMesh: null, walk: 0 };
   return root;
 }
 
@@ -613,7 +623,7 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; });
 canvas.addEventListener('mousemove', (e) => { mouseNDC.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1); });
-canvas.addEventListener('mousedown', (e) => { ac(); if (e.button === 0) mouseDown = true; if (e.button === 2) input.fish = true; });
+canvas.addEventListener('mousedown', (e) => { ac(); if (playing && !locked && !touchState.on) requestLock(); if (e.button === 0) mouseDown = true; if (e.button === 2) input.fish = true; });
 window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 const raycaster = new THREE.Raycaster();
@@ -621,7 +631,7 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const aimPoint = new THREE.Vector3();
 
 // touch: left stick moves, right stick aims and fires when pushed past the dead zone
-const touchState = { on: false, mx: 0, mz: 0, ax: 0, az: 0, aiming: false, mag: 0 };
+const touchState = { on: false, mx: 0, mz: 0, lookX: 0, lookY: 0, firing: false };
 function setupStick(el, onMove) {
   const knob = el.querySelector('i');
   let pid = null;
@@ -648,38 +658,66 @@ function enableTouch() {
 window.addEventListener('touchstart', enableTouch, { passive: true, once: true });
 if (matchMedia('(pointer: coarse)').matches) enableTouch();
 setupStick(document.getElementById('stickL'), (x, y) => { touchState.mx = x; touchState.mz = y; });
-setupStick(document.getElementById('stickR'), (x, y, active) => {
-  const m = Math.hypot(x, y);
-  touchState.mag = m;
-  if (m > 0.2) { touchState.ax = x / m; touchState.az = y / m; }
-  touchState.aiming = active && m > 0.35;
+setupStick(document.getElementById('stickR'), (x, y) => {
+  touchState.lookX = Math.abs(x) > 0.12 ? x : 0;
+  touchState.lookY = Math.abs(y) > 0.12 ? y : 0;
 });
+{
+  const fb = document.getElementById('tFire');
+  fb.addEventListener('pointerdown', (e) => { e.preventDefault(); ac(); touchState.firing = true; });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => fb.addEventListener(ev, () => (touchState.firing = false)));
+}
 const tap = (id, fn) => document.getElementById(id).addEventListener('pointerdown', (e) => { e.preventDefault(); ac(); fn(); });
 tap('tFish', () => (input.fish = true));
 tap('tDash', () => (input.dash = true));
 tap('tSwap', () => (input.use = true));
 tap('tPause', () => togglePause());
 
-function readInput(me) {
-  if (touchState.on && !mouseDown && !keys['w'] && !keys['a'] && !keys['s'] && !keys['d']) {
-    input.mx = Math.abs(touchState.mx) > 0.15 ? touchState.mx : 0;
-    input.mz = Math.abs(touchState.mz) > 0.15 ? touchState.mz : 0;
-    if (touchState.ax || touchState.az) { input.ax = touchState.ax; input.az = touchState.az; input.aimDist = 3 + touchState.mag * 10; }
-    input.fire = touchState.aiming;
-    return;
-  }
-  input.mx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
-  input.mz = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0);
-  input.fire = mouseDown;
+// Over-the-shoulder camera: yaw/pitch come from the mouse (pointer lock), the right stick, or the arrow keys.
+const cam = { yaw: 0, pitch: 0.32, dist: 7, target: new THREE.Vector3(), init: false };
+function camForward() { return { x: Math.sin(cam.yaw), z: Math.cos(cam.yaw) }; }
+function readInput(me, dt) {
+  const touching = touchState.on && !mouseDown && !keys['w'] && !keys['a'] && !keys['s'] && !keys['d'];
+  // rotate the camera
+  if (keys['arrowleft']) cam.yaw += 2.4 * dt;
+  if (keys['arrowright']) cam.yaw -= 2.4 * dt;
+  if (keys['arrowup']) cam.pitch -= 1.2 * dt;
+  if (keys['arrowdown']) cam.pitch += 1.2 * dt;
+  if (touching) { cam.yaw -= touchState.lookX * 2.8 * dt; cam.pitch += touchState.lookY * 1.4 * dt; }
+  cam.pitch = Math.max(-0.2, Math.min(1.15, cam.pitch));
+  const f = camForward(), r = { x: -f.z, z: f.x };
+  let fw, st;
+  if (touching) { fw = -touchState.mz; st = touchState.mx; if (Math.hypot(fw, st) < 0.15) fw = st = 0; }
+  else { fw = (keys['w'] ? 1 : 0) - (keys['s'] ? 1 : 0); st = (keys['d'] ? 1 : 0) - (keys['a'] ? 1 : 0); }
+  input.mx = f.x * fw + r.x * st;
+  input.mz = f.z * fw + r.z * st;
+  input.fire = touching ? touchState.firing : mouseDown;
+  // aim where the crosshair points: a ray from the camera through the middle of the screen
   if (me) {
-    raycaster.setFromCamera(mouseNDC, camera);
-    if (raycaster.ray.intersectPlane(groundPlane, aimPoint)) {
-      const dx = aimPoint.x - me.x, dz = aimPoint.z - me.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 0.01) { input.ax = dx / d; input.az = dz / d; input.aimDist = d; }
-    }
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    let px, pz;
+    if (raycaster.ray.intersectPlane(groundPlane, aimPoint) && aimPoint.distanceTo(camera.position) < 45) { px = aimPoint.x; pz = aimPoint.z; }
+    else { const far = raycaster.ray.at(30, new THREE.Vector3()); px = far.x; pz = far.z; }
+    const dx = px - me.x, dz = pz - me.z, d = Math.hypot(dx, dz);
+    if (d > 0.5) { input.ax = dx / d; input.az = dz / d; input.aimDist = d; }
+    else { input.ax = f.x; input.az = f.z; input.aimDist = 2; }
   }
 }
+// pointer lock for mouse look
+let locked = false;
+document.addEventListener('pointerlockchange', () => {
+  const was = locked;
+  locked = document.pointerLockElement === canvas;
+  if (was && !locked && playing && !touchState.on && !paused && $('pause').classList.contains('hidden')) togglePause();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!playing || touchState.on) return;
+  if (locked || mouseDown) {
+    cam.yaw -= e.movementX * 0.0026;
+    cam.pitch += e.movementY * 0.0022;
+  }
+});
+function requestLock() { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) {} }
 
 // ------------------------------------------------------------------ game sources
 let source = null; // { tick(dt), myId, prev, curr, alpha, events[], sendInput(inp), stop() }
@@ -757,7 +795,7 @@ function netSource(url, room, name, onLobby, onClose) {
       if (msg.e && msg.e.length) src.events.push(...msg.e);
       // client-side prediction for our own walking; anything else (dash, knockback, fishing) follows the server
       const me = msg.s.players.find((p) => p.id === src.myId);
-      if (me && me.alive && !me.falling && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
+      if (me && me.alive && !me.air && !me.swim && me.climbT <= 0 && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
         const np = { x: me.x, z: me.z, vx: me.vx, vz: me.vz, weapon: me.weapon, slowT: me.slowT };
         while (hist.length && hist[0].seq <= me.ack) hist.shift();
         for (const h of hist) Sim.walkStep(np, h.mx, h.mz, STEP);
@@ -782,11 +820,12 @@ const markers = new Map(); // pelican drop target markers
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 function interp(prevList, cur, alpha) {
-  if (!prevList) return { x: cur.x, z: cur.z };
+  const y0 = cur.y || 0;
+  if (!prevList) return { x: cur.x, z: cur.z, y: y0 };
   const p = prevList.find((e) => e.id === cur.id);
-  if (!p) return { x: cur.x, z: cur.z };
-  if (Math.hypot(p.x - cur.x, p.z - cur.z) > 6) return { x: cur.x, z: cur.z };
-  return { x: lerp(p.x, cur.x, alpha), z: lerp(p.z, cur.z, alpha) };
+  if (!p) return { x: cur.x, z: cur.z, y: y0 };
+  if (Math.hypot(p.x - cur.x, p.z - cur.z) > 8) return { x: cur.x, z: cur.z, y: y0 };
+  return { x: lerp(p.x, cur.x, alpha), z: lerp(p.z, cur.z, alpha), y: lerp(p.y || 0, y0, alpha) };
 }
 
 function syncPlayers(s, prev, alpha, t, dt) {
@@ -799,7 +838,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
       scene.add(obj);
       const tag = document.createElement('div');
       tag.className = 'tag';
-      tag.innerHTML = `<div class="nm"></div><div class="bar"><i></i><b></b></div><div class="fishing hidden"></div>`;
+      tag.innerHTML = `<div class="nm"></div><div class="pc"></div><div class="fishing hidden"></div>`;
       tagsEl.appendChild(tag);
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new Array(10).fill(0).map(() => new THREE.Vector3())), new THREE.LineBasicMaterial({ color: '#ffffff' }));
       line.frustumCulled = false;
@@ -812,19 +851,22 @@ function syncPlayers(s, prev, alpha, t, dt) {
       tierRing.rotation.x = -Math.PI / 2;
       bobber.add(tierRing);
       scene.add(bobber);
-      v = { obj, tag, line, bobber, tierRing, lastHp: p.hp, x: p.x, z: p.z };
+      v = { obj, tag, line, bobber, tierRing, x: p.x, z: p.z, y: 0, rippleT: 0 };
       views.players.set(p.id, v);
     }
     const o = v.obj, u = o.userData;
     let pos = interp(prev && prev.players, p, alpha);
     if (p.id === source.myId && source.pred) {
       source.off.x *= Math.exp(-dt * 10); source.off.z *= Math.exp(-dt * 10);
-      pos = { x: source.pred.x + source.off.x, z: source.pred.z + source.off.z };
+      pos = { x: source.pred.x + source.off.x, z: source.pred.z + source.off.z, y: 0 };
     }
     const moved = Math.hypot(pos.x - v.x, pos.z - v.z);
-    v.x = pos.x; v.z = pos.z;
-    o.visible = p.alive || p.falling;
-    o.position.set(pos.x, p.falling ? p.y : 0, pos.z);
+    v.x = pos.x; v.z = pos.z; v.y = pos.y;
+    o.visible = p.alive;
+    // swimmers sit low in the water with just head and shoulders showing
+    const swimY = WATER_Y - 0.75 + waveH(pos.x, pos.z, t) * 0.6;
+    o.position.set(pos.x, p.swim ? swimY : p.climbT > 0 ? Math.max(swimY, pos.y) : pos.y, pos.z);
+    u.ring.visible = !p.swim && !p.air;
     const yaw = Math.atan2(p.ax, p.az);
     let dy = yaw - o.rotation.y;
     while (dy > Math.PI) dy -= Math.PI * 2;
@@ -837,9 +879,14 @@ function syncPlayers(s, prev, alpha, t, dt) {
     u.bodyG.rotation.z = Math.sin(u.walk) * 0.12 * sp;
     u.footL.position.z = 0.03 + Math.sin(u.walk) * 0.22 * sp;
     u.footR.position.z = 0.03 - Math.sin(u.walk) * 0.22 * sp;
-    u.bodyG.rotation.x = p.dashT > 0 ? 0.5 : p.stunT > 0 ? Math.sin(t * 30) * 0.15 : 0;
-    if (p.falling) o.rotation.z += dt * 8;
-    else o.rotation.z = 0;
+    if (!(p.air && p.kbT > 0)) u.bodyG.rotation.x = p.dashT > 0 ? 0.5 : p.stunT > 0 ? Math.sin(t * 30) * 0.15 : p.swim ? 0.25 : 0;
+    // tumble while launched, bob while swimming
+    if (p.air && p.kbT > 0) { u.bodyG.rotation.x += dt * 14; if (Math.random() < 0.6) burst(pos.x, pos.y + 0.8, pos.z, '#ffffff', 1, 0.5, 0.22, 0.5, 0); }
+    if (p.swim) {
+      u.bodyG.position.y = Math.sin(t * 4) * 0.08;
+      v.rippleT -= dt;
+      if (v.rippleT <= 0) { v.rippleT = 0.6; ringFx(pos.x, pos.z, 1.6, '#ffffff', WATER_Y + 0.15); }
+    }
     // flashing when invulnerable
     u.bodyG.visible = !(p.invulnT > 0 && Math.floor(t * 12) % 2 === 0);
     u.arrow.visible = p.id === source.myId && p.alive;
@@ -898,8 +945,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
       v.line.geometry.attributes.position.needsUpdate = true;
     }
     // tag
-    const head = new THREE.Vector3(pos.x, 2.4, pos.z).project(camera);
-    const vis = o.visible && head.z < 1;
+    const head = new THREE.Vector3(pos.x, pos.y + 2.4, pos.z).project(camera);
+    const vis = o.visible && head.z < 1 && p.id !== source.myId;
     v.tag.style.display = vis ? '' : 'none';
     if (vis) {
       v.tag.style.left = ((head.x + 1) / 2) * window.innerWidth + 'px';
@@ -907,10 +954,9 @@ function syncPlayers(s, prev, alpha, t, dt) {
       const nm = v.tag.querySelector('.nm');
       nm.textContent = p.name;
       nm.style.color = p.color;
-      v.tag.querySelector('.bar i').style.width = Math.max(0, p.hp) + '%';
-      const ab = v.tag.querySelector('.bar b');
-      ab.style.left = Math.max(0, p.hp) + '%';
-      ab.style.width = Math.min(100 - Math.max(0, p.hp), p.armor) + '%';
+      const pc = v.tag.querySelector('.pc');
+      pc.textContent = p.pct + '%' + (p.armor > 0 ? ' 🦀' : '');
+      pc.style.color = pctColor(p.pct);
       const fl = v.tag.querySelector('.fishing');
       if (p.fishing) {
         const tier = Sim.tierFor(p.fishing.depth);
@@ -923,6 +969,12 @@ function syncPlayers(s, prev, alpha, t, dt) {
   for (const [id, v] of views.players) {
     if (!seen.has(id)) { scene.remove(v.obj, v.line, v.bobber); v.tag.remove(); views.players.delete(id); }
   }
+}
+
+function pctColor(pct) {
+  const k = Math.min(1, pct / 160);
+  const c = new THREE.Color('#ffffff').lerp(new THREE.Color('#ffd23f'), Math.min(1, k * 2)).lerp(new THREE.Color('#ff3b3b'), Math.max(0, k * 2 - 1));
+  return '#' + c.getHexString();
 }
 
 const PROJ_LOOK = {
@@ -1102,8 +1154,9 @@ function updateHud(s, me) {
   }
   if (!me) return;
   if (touchState.on) $('tFish').textContent = me.fishing ? (me.fishing.depth < CFG.fishMinBite ? 'CANCEL' : 'REEL') : 'CAST';
-  $('hpbar').style.width = Math.max(0, me.hp) + '%';
-  $('hptxt').textContent = me.alive ? Math.max(0, me.hp) + ' hp' : 'respawning in ' + Math.ceil(me.respawnT);
+  $('pct').textContent = me.alive ? me.pct + '%' : 'KO';
+  $('pct').style.color = pctColor(me.pct);
+  $('pctsub').textContent = me.alive ? (me.swim ? 'Swim back to the pier!' : 'damage') : 'back in ' + Math.ceil(me.respawnT);
   $('armorbar').style.width = (me.armor / CFG.maxArmor) * 100 + '%';
   $('armortxt').textContent = me.armor > 0 ? '🦀 armor ' + me.armor : 'no armor';
   const buffs = [];
@@ -1134,7 +1187,8 @@ function updateHud(s, me) {
   const pr = $('prompt');
   let msg = '';
   if (me.alive && !me.fishing) {
-    if (!me.hasRod && !me.weapon) msg = 'Run to the rod rack in the middle';
+    if (me.swim) msg = 'Swim back and climb onto the pier';
+    else if (!me.hasRod && !me.weapon) msg = 'Run to the rod rack in the middle';
     else if (me.hasRod && Sim.waterDirection(me.x, me.z, me.ax, me.az)) msg = Sim.isPierTip(me.x, me.z) ? 'R to cast · DEEP WATER: sinks faster' : 'R to cast';
     const groundFish = source.curr.items.find((it) => it.kind === 'fish' && Math.hypot(it.x - me.x, it.z - me.z) < 1.4);
     if (groundFish && me.weapon) msg = 'E to swap for ' + WEAPONS[groundFish.weapon].name;
@@ -1212,6 +1266,7 @@ function handleEvents(s, me) {
       case 'boom': boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
       case 'zap': zapFx(e.pts); SFX.zap(); break;
       case 'splash': {
+        if (e.id === myId) toast('SPLASH! Swim back', '#9fe8ff', 1.4);
         burst(e.x, WATER_Y + 0.2, e.z, '#ffffff', e.small ? 6 : 18, e.small ? 4 : 7, 0.18, 0.7);
         burst(e.x, WATER_Y + 0.2, e.z, '#9fe8ff', e.small ? 4 : 12, 5, 0.15, 0.7);
         ringFx(e.x, e.z, 3, '#ffffff', WATER_Y + 0.2);
@@ -1219,16 +1274,19 @@ function handleEvents(s, me) {
         break;
       }
       case 'ko': {
-        const how = e.cause === 'water' ? 'splashed' : 'slapped out';
-        if (e.by) feed(`${nameOf(s, e.by)} ${e.cause === 'water' ? 'knocked' : 'KO\'d'} ${nameOf(s, e.id)}${e.cause === 'water' ? ' into the sea' : ''}`);
-        else feed(`${nameOf(s, e.id)} fell in 🌊`);
-        if (e.id === myId) toast(e.cause === 'water' ? 'SPLASH!' : 'KNOCKED OUT', '#ff5a5f', 2);
-        else if (e.by === myId) { toast('KO! 🐟', '#ffd23f', 1.4); }
-        if (e.cause !== 'water') burst(e.x, 1, e.z, '#ffffff', 14, 6, 0.16, 0.6);
-        SFX.ko();
-        void how;
+        if (e.by) feed(`${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥`);
+        else feed(`${nameOf(s, e.id)} drifted out to sea`);
+        if (e.id === myId) toast('KNOCKED OUT', '#ff5a5f', 2);
+        else if (e.by === myId) toast('KO! 🐟', '#ffd23f', 1.4);
+        const p = s.players.find((q) => q.id === e.id);
+        boomFx(e.x, e.z, 6);
+        burst(e.x, 2, e.z, p ? p.color : '#fff', 30, 12, 0.3, 1.2, 6);
+        shake = Math.max(shake, 0.5);
+        SFX.ko(); SFX.boom();
         break;
       }
+      case 'launch': if (e.power > 18) { SFX.slap(); tone(200, 0.35, 'sawtooth', 0.05, 3); } break;
+      case 'climb': if (e.id === myId) tone(500, 0.15, 'triangle', 0.06, 1.6); break;
       case 'catch': {
         const w = WEAPONS[e.w];
         const p = s.players.find((q) => q.id === e.id);
@@ -1263,12 +1321,13 @@ function handleEvents(s, me) {
         break;
       case 'rod': if (e.id === myId) { SFX.pickup(); toast('🎣 Got a rod! Head to an edge.', '#fff', 1.6); } break;
       case 'pelican': SFX.pelican(); feed(`🦩 Pelican inbound with <b style="color:${DROP_COLORS[e.kind]}">${DROPS[e.kind].name}</b>`); break;
-      case 'land': burst(e.x, 0.2, e.z, '#f5d78e', 6, 3, 0.12, 0.4); break;
+      case 'land': burst(e.x, 0.2, e.z, e.player ? '#ffffff' : '#f5d78e', 6, 3, 0.12, 0.4); break;
       case 'noedge': if (e.id === myId) toast('Get to the edge of the pier to cast', '#fff', 1.2); break;
       case 'norod': if (e.id === myId) toast('No rod! Grab one in the middle.', '#fff', 1.2); break;
       case 'dash': { const p = s.players.find((q) => q.id === e.id); if (p) burst(p.x, 0.3, p.z, '#ffffff', 4, 2, 0.12, 0.3, 2); break; }
       case 'overtime': toast('OVERTIME<small>next KO wins</small>', '#ffd23f', 2.5); break;
       case 'start': toast('GO FISH!', '#ffd23f', 1.5); break;
+      case 'spawn': if (e.id === myId) { const p = s.players.find((q) => q.id === e.id); if (p) cam.yaw = Math.atan2(p.ax, p.az); cam.pitch = 0.32; } break;
     }
   }
 }
@@ -1277,24 +1336,26 @@ function handleEvents(s, me) {
 const camTarget = new THREE.Vector3();
 let camInit = false;
 function updateCamera(me, dt, t) {
-  let tx = 0, tz = 4;
   if (me) {
-    tx = me.x + input.ax * Math.min(input.aimDist, 10) * 0.18;
-    tz = me.z + input.az * Math.min(input.aimDist, 10) * 0.18;
+    const want = new THREE.Vector3(me.x, (me.y || 0) + 1.7, me.z);
+    if (!cam.init) { cam.target.copy(want); cam.init = true; }
+    cam.target.lerp(want, Math.min(1, dt * 14));
   }
-  const want = new THREE.Vector3(tx, 0, tz);
-  if (!camInit) { camTarget.copy(want); camInit = true; }
-  camTarget.lerp(want, Math.min(1, dt * 5));
-  const portrait = window.innerWidth / window.innerHeight < 0.8;
-  camera.position.set(camTarget.x, portrait ? 26 : 19, camTarget.z + (portrait ? 14 : 13.5));
+  const f = camForward(), r = { x: -f.z, z: f.x };
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const dir = new THREE.Vector3(f.x * cp, -sp, f.z * cp);
+  const shoulder = 0.7;
+  camera.position.copy(cam.target).addScaledVector(dir, -cam.dist);
+  camera.position.x -= r.x * shoulder; camera.position.z -= r.z * shoulder;
+  camera.position.y = Math.max(camera.position.y, WATER_Y + 0.6);
   if (shake > 0) {
     camera.position.x += (Math.random() - 0.5) * shake;
     camera.position.y += (Math.random() - 0.5) * shake;
     shake = Math.max(0, shake - dt * 1.5);
   }
-  camera.lookAt(camTarget.x, 0, camTarget.z);
-  sun.position.set(camTarget.x + 18, 30, camTarget.z + 12);
-  sun.target.position.set(camTarget.x, 0, camTarget.z);
+  camera.lookAt(camera.position.clone().add(dir));
+  sun.position.set(cam.target.x + 18, 30, cam.target.z + 12);
+  sun.target.position.set(cam.target.x, 0, cam.target.z);
 }
 
 // ------------------------------------------------------------------ loop
@@ -1315,7 +1376,7 @@ function frame(now) {
     const s0 = source.curr;
     const me0 = s0 && s0.players.find((p) => p.id === source.myId);
     const v0 = views.players.get(source.myId);
-    readInput(me0 && v0 ? { x: v0.x, z: v0.z } : me0);
+    readInput(me0 && v0 ? { x: v0.x, z: v0.z } : me0, dt);
     source.tick(dt);
     const s = source.curr;
     if (s) {
@@ -1330,7 +1391,7 @@ function frame(now) {
       updateHud(s, me);
       drawMinimap(s, me);
       const mv = me && views.players.get(me.id);
-      updateCamera(me && (me.alive || me.falling) ? (mv ? { x: mv.x, z: mv.z } : me) : null, dt, t);
+      updateCamera(me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null, dt, t);
       if (s.phase === 'over' && !$('results').classList.contains('shown')) showResults(s);
       if (s.phase === 'play' && $('results').classList.contains('shown')) { $('results').classList.remove('shown'); $('results').classList.add('hidden'); }
     }
@@ -1377,6 +1438,8 @@ function beginPlay(src) {
   $('results').classList.remove('shown');
   hud.classList.remove('hidden');
   document.getElementById('touch').classList.toggle('hidden', !touchState.on);
+  cam.init = false;
+  if (!touchState.on) requestLock();
 }
 $('btnSolo').onclick = () => {
   ac();
@@ -1428,11 +1491,12 @@ function togglePause() {
   $('pause').classList.toggle('hidden', !($('pause').classList.contains('hidden')));
   if (!source.local) $('pause').querySelector('h1').textContent = 'MENU';
 }
-$('btnResume').onclick = () => { paused = false; $('pause').classList.add('hidden'); };
+$('btnResume').onclick = () => { paused = false; $('pause').classList.add('hidden'); if (!touchState.on) requestLock(); };
 $('btnQuit').onclick = () => { quitToMenu(); };
 function quitToMenu() {
   if (source) source.stop();
   source = null; playing = false; paused = false;
+  if (document.pointerLockElement) document.exitPointerLock();
   clearViews();
   hud.classList.add('hidden');
   document.getElementById('touch').classList.add('hidden');
