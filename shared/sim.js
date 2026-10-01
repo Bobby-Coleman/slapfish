@@ -158,6 +158,29 @@
     return best;
   }
 
+
+  // Plain walking step (no dash or knockback). Mirrors integrate() so online clients can predict their own movement.
+  function walkStep(p, mx, mz, dt) {
+    const C = CFG;
+    const heavy = p.weapon && WEAPONS[p.weapon.id] && WEAPONS[p.weapon.id].heavy;
+    let speed = heavy ? C.heavySpeed : C.playerSpeed;
+    if (p.slowT > 0) speed *= 0.6;
+    const ml = len(mx, mz);
+    if (ml > 1) { mx /= ml; mz /= ml; }
+    const k = 1 - Math.exp(-14 * dt);
+    p.vx += (mx * speed - p.vx) * k;
+    p.vz += (mz * speed - p.vz) * k;
+    const m = C.playerRadius * 0.7;
+    let nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
+    if (!onPlatform(nx, p.z, m)) { nx = p.x; p.vx = 0; }
+    if (!onPlatform(nx, nz, m)) { nz = p.z; p.vz = 0; }
+    for (const o of MAP.obstacles.concat([MAP.rack])) {
+      const dx = nx - o.x, dz = nz - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
+      if (d < min && d > 0.0001) { nx = o.x + (dx / d) * min; nz = o.z + (dz / d) * min; }
+    }
+    p.x = nx; p.z = nz;
+  }
+
   // Spots the bot likes to fish from.
   const FISH_SPOTS = [
     { x: 0, z: 27.2, tip: true }, { x: 0, z: -27.2, tip: true }, { x: 27.2, z: 0, tip: true }, { x: -27.2, z: 0, tip: true },
@@ -233,6 +256,7 @@
       if (al > 0.001) { cur.ax = inp.ax / al; cur.az = inp.az / al; }
       cur.aimDist = clamp(+inp.aimDist || 8, 0, 40);
       cur.fire = !!inp.fire;
+      if (inp.seq != null) cur.seq = inp.seq;
       // edge-triggered buttons latch until the sim consumes them
       cur.dash = cur.dash || !!inp.dash;
       cur.fish = cur.fish || !!inp.fish;
@@ -710,6 +734,7 @@
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip } : null,
           bubble: p.bubble, lure: p.lure, kos: p.kos, deaths: p.deaths, caught: p.caught,
+          vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
         projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
         items: S.items.map((i) => ({ id: i.id, kind: i.kind, weapon: i.weapon, x: r2(i.x), z: r2(i.z), y: r2(i.y || 0) })),
@@ -890,5 +915,5 @@
     return out;
   }
 
-  return { CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { walkStep, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });

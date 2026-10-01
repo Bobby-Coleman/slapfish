@@ -710,19 +710,25 @@ function localSource(opts) {
 
 function netSource(url, room, name, onLobby, onClose) {
   const ws = new WebSocket(url);
-  let lastSnapAt = 0, interval = 50, sendAcc = 0;
+  let lastSnapAt = 0, interval = 50, sendAcc = 0, seq = 0;
+  const hist = []; // inputs the server hasn't acknowledged yet, replayed for prediction
   const pending = { dash: false, fish: false, use: false };
   const src = {
-    myId: null, local: false, events: [], curr: null, prev: null, alpha: 1, ws,
+    myId: null, local: false, events: [], curr: null, prev: null, alpha: 1, ws, pred: null, off: { x: 0, z: 0 },
     tick(dt) {
       const now = performance.now();
       src.alpha = Math.min(1.2, (now - lastSnapAt) / interval);
       pending.dash = pending.dash || input.dash; pending.fish = pending.fish || input.fish; pending.use = pending.use || input.use;
       input.dash = input.fish = input.use = false;
       sendAcc += dt;
-      if (sendAcc >= STEP && ws.readyState === 1) {
-        sendAcc = 0;
-        ws.send(JSON.stringify({ t: 'input', i: Object.assign({}, input, pending) }));
+      sendAcc = Math.min(sendAcc, STEP * 3);
+      while (sendAcc >= STEP && ws.readyState === 1) {
+        sendAcc -= STEP;
+        seq++;
+        ws.send(JSON.stringify({ t: 'input', i: Object.assign({}, input, pending, { seq }) }));
+        hist.push({ seq, mx: input.mx, mz: input.mz });
+        if (hist.length > 90) hist.shift();
+        if (src.pred) Sim.walkStep(src.pred, input.mx, input.mz, STEP);
         pending.dash = pending.fish = pending.use = false;
       }
     },
@@ -742,6 +748,18 @@ function netSource(url, room, name, onLobby, onClose) {
       src.prev = src.curr;
       src.curr = msg.s;
       if (msg.e && msg.e.length) src.events.push(...msg.e);
+      // client-side prediction for our own walking; anything else (dash, knockback, fishing) follows the server
+      const me = msg.s.players.find((p) => p.id === src.myId);
+      if (me && me.alive && !me.falling && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
+        const np = { x: me.x, z: me.z, vx: me.vx, vz: me.vz, weapon: me.weapon, slowT: me.slowT };
+        while (hist.length && hist[0].seq <= me.ack) hist.shift();
+        for (const h of hist) Sim.walkStep(np, h.mx, h.mz, STEP);
+        if (src.pred) {
+          src.off.x += src.pred.x - np.x; src.off.z += src.pred.z - np.z;
+          if (Math.hypot(src.off.x, src.off.z) > 3) src.off.x = src.off.z = 0;
+        }
+        src.pred = np;
+      } else { src.pred = null; src.off.x = src.off.z = 0; }
       if (!playing && msg.s.phase === 'play') beginPlay(src);
     }
   };
@@ -791,7 +809,11 @@ function syncPlayers(s, prev, alpha, t, dt) {
       views.players.set(p.id, v);
     }
     const o = v.obj, u = o.userData;
-    const pos = interp(prev && prev.players, p, alpha);
+    let pos = interp(prev && prev.players, p, alpha);
+    if (p.id === source.myId && source.pred) {
+      source.off.x *= Math.exp(-dt * 10); source.off.z *= Math.exp(-dt * 10);
+      pos = { x: source.pred.x + source.off.x, z: source.pred.z + source.off.z };
+    }
     const moved = Math.hypot(pos.x - v.x, pos.z - v.z);
     v.x = pos.x; v.z = pos.z;
     o.visible = p.alive || p.falling;
@@ -1275,7 +1297,8 @@ function frame(now) {
   if (source && playing) {
     const s0 = source.curr;
     const me0 = s0 && s0.players.find((p) => p.id === source.myId);
-    readInput(me0);
+    const v0 = views.players.get(source.myId);
+    readInput(me0 && v0 ? { x: v0.x, z: v0.z } : me0);
     source.tick(dt);
     const s = source.curr;
     if (s) {
@@ -1289,7 +1312,8 @@ function frame(now) {
       handleEvents(s, me);
       updateHud(s, me);
       drawMinimap(s, me);
-      updateCamera(me && (me.alive || me.falling) ? me : null, dt, t);
+      const mv = me && views.players.get(me.id);
+      updateCamera(me && (me.alive || me.falling) ? (mv ? { x: mv.x, z: mv.z } : me) : null, dt, t);
       if (s.phase === 'over' && !$('results').classList.contains('shown')) showResults(s);
       if (s.phase === 'play' && $('results').classList.contains('shown')) { $('results').classList.remove('shown'); $('results').classList.add('hidden'); }
     }

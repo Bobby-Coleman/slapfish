@@ -13,7 +13,17 @@ npm install
 npm start            # http://localhost:8080
 ```
 
-Open the printed address, pick "Play online with friends", and join a room. Friends on your network use `http://<your-ip>:8080`. For friends elsewhere, host the server somewhere public (any Node host works; it serves the client and the WebSocket on one port, set with `PORT`).
+Open the printed address, pick "Play online with friends", and join a room. Friends on your network use `http://<your-ip>:8080`.
+
+**Playing with friends over the internet:** the server needs a public address. The easiest free option is Render:
+
+1. Go to [render.com/deploy?repo=https://github.com/Bobby-Coleman/slapfish](https://render.com/deploy?repo=https://github.com/Bobby-Coleman/slapfish) and sign in with GitHub.
+2. Accept the defaults from `render.yaml` and deploy.
+3. Open the `https://slapfish-….onrender.com` address it gives you and send the same link to friends. Everyone picks the same room name.
+
+Free Render servers sleep when idle, so the first visit can take up to a minute to wake. Any other Node host works too: it serves the page and the WebSocket on one port, set with `PORT`.
+
+To test how online play feels with lag, run `LAG_MS=60 npm start` (adds 60 ms each way).
 
 ## Controls
 

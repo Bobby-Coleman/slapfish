@@ -11,6 +11,7 @@ const ROOT = path.join(__dirname, '..');
 const TICK = 1 / Sim.CFG.tickRate;
 const SNAP_EVERY = 2; // broadcast every 2nd tick = 15 snapshots/s, clients interpolate
 const MAX_PLAYERS = 8;
+const LAG_MS = +process.env.LAG_MS || 0; // simulate network latency for testing (each direction)
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.md': 'text/markdown; charset=utf-8' };
 const server = http.createServer((req, res) => {
@@ -36,7 +37,8 @@ function getRoom(name) {
   }
   return r;
 }
-function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+function rawSend(ws, data) { if (LAG_MS) setTimeout(() => ws.readyState === 1 && ws.send(data), LAG_MS); else if (ws.readyState === 1) ws.send(data); }
+function send(ws, msg) { rawSend(ws, JSON.stringify(msg)); }
 function lobby(r) {
   const s = r.game.state;
   const msg = { t: 'lobby', host: r.host, phase: s.phase, players: Object.values(s.players).map((p) => ({ id: p.id, name: p.name, color: p.color, bot: p.bot })) };
@@ -47,7 +49,8 @@ let nextId = 1;
 const wss = new WebSocketServer({ server });
 wss.on('connection', (ws) => {
   let room = null, id = null;
-  ws.on('message', (raw) => {
+  ws.on('message', (raw) => (LAG_MS ? setTimeout(() => onMessage(raw), LAG_MS) : onMessage(raw)));
+  function onMessage(raw) {
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
     if (msg.t === 'join' && !room) {
@@ -77,7 +80,7 @@ wss.on('connection', (ws) => {
       g.start();
       lobby(room);
     }
-  });
+  }
   ws.on('close', () => {
     if (!room) return;
     room.clients.delete(id);
@@ -95,7 +98,7 @@ setInterval(() => {
     if (++r.tick % SNAP_EVERY === 0 && r.game.state.phase !== 'lobby') {
       const msg = JSON.stringify({ t: 'snap', s: r.game.snapshot(), e: r.events });
       r.events = [];
-      for (const ws of r.clients.values()) if (ws.readyState === 1) ws.send(msg);
+      for (const ws of r.clients.values()) rawSend(ws, msg);
     }
   }
 }, TICK * 1000);
