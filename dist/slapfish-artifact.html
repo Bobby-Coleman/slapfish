@@ -123,6 +123,7 @@
   .seg button.on { background: var(--ink); color: var(--paper); }
   .seg.wrap { flex-wrap: wrap; }
   input[type=text] { font: inherit; padding: 6px 10px; border-radius: 10px; border: 2px solid #10223a33; color: var(--ink); background: #fff; flex: 1; min-width: 120px; }
+  .charbtn { border: 0; background: var(--ink); color: var(--paper); font: inherit; font-weight: 800; font-size: 16px; padding: 4px 14px; border-radius: 10px; cursor: pointer; }
   .big { display: block; width: 100%; border: 0; border-radius: 16px; padding: 12px; font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; margin-top: 12px; box-shadow: 0 5px 0 #10223a55; }
   .big:active { transform: translateY(3px); box-shadow: 0 2px 0 #10223a55; }
   .play { background: var(--coral); color: #fff; }
@@ -329,6 +330,7 @@
       <div class="mcol">
         <button class="chunk play" id="btnSolo"><span>▶</span> PLAY <small>vs bots</small></button>
         <button class="chunk alt" id="btnOnline"><span>🌊</span> ONLINE <small>with friends</small></button>
+        <button class="chunk ghostb" id="btnCharPick"><span>🎣</span> CHARACTER <small id="btnChar">Skipper ▸</small></button>
         <button class="chunk ghostb" id="btnGuide"><span>📖</span> FISH GUIDE</button>
       </div>
       <div class="mpanel">
@@ -367,6 +369,7 @@
     <button class="big play" id="btnConnect">Join room</button>
     <div id="lobby" class="hidden">
       <ul id="lobbyList"></ul>
+      <div class="row"><label>Character</label><button class="charbtn" id="btnCharNet">Change character ▸</button></div>
       <div class="row"><label>Map</label><div class="seg" id="segMapNet"><button data-v="harbor" class="on">Harbor Box</button><button data-v="plus">Plus Pier</button></div></div>
       <div class="row"><label>Round</label><div class="seg wrap" id="segRoundNet"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="team">Team KOs</button><button data-v="koth">Hill</button><button data-v="ctf">Flag</button></div></div>
       <div class="row hidden" id="rowTeamsNet"><label>Teams</label><div class="seg" id="segTeamsNet"><button data-v="2" class="on">2 teams</button><button data-v="3">3 teams</button></div></div>
@@ -1104,12 +1107,14 @@
       }
     }
 
-    g.addPlayer = function (id, name, isBot, difficulty) {
+    // char is a cosmetic character id (see client/characters.js); the sim only stores and forwards it.
+    const cleanChar = (c) => (typeof c === 'string' && /^[a-z0-9_]{1,16}$/.test(c) ? c : null);
+    g.addPlayer = function (id, name, isBot, difficulty, char) {
       useWorld(g.world);
       const used = new Set(Object.values(S.players).map((p) => p.color));
       const color = COLORS.find((c) => !used.has(c)) || COLORS[Math.floor(Math.random() * COLORS.length)];
       const p = {
-        id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal',
+        id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal', char: cleanChar(char),
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
         hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, dotBy: null, lastW: null, lastHitW: null,
@@ -1128,6 +1133,7 @@
       syncRack();
       return p;
     };
+    g.setChar = function (id, char) { if (S.players[id]) S.players[id].char = cleanChar(char); };
     g.removePlayer = function (id) {
       delete S.players[id];
       delete g.inputs[id];
@@ -2230,7 +2236,7 @@
         bases: S.teams ? teamBases() : null,
         mode: S.mode, round: S.round, roundT: r2(S.roundT), breakT: r2(S.breakT), roundWinner: S.roundWinner, winRounds: C.winRounds, roundCap: C.roundCap,
         players: Object.values(S.players).map((p) => ({
-          id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
+          id: p.id, name: p.name, color: p.color, char: p.char, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
           hp: Math.max(0, Math.round(p.hp)), armor: Math.round(p.armor), alive: p.alive, out: p.respawnT === Infinity, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: p.respawnT === Infinity ? -1 : r2(p.respawnT), dashN: p.dashN, dashRT: r2(p.dashRT), dashIF: r2(p.dashIF), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), freezeT: r2(p.freezeT), splatT: r2(p.splatT), blindT: r2(p.blindT), phaseT: r2(p.phaseT), dotT: r2(p.dotT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
@@ -2480,8 +2486,679 @@
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
 <script type="module">
-// Slap Fish - browser client: rendering, input, HUD, and either a local sim (vs bots) or an online connection.
 import * as THREE from 'three';
+// ---- characters.js
+const { CHARACTERS, DEFAULT_CHARACTER, isCharacter, characterFor, buildCharacter, buildFigure } = (() => {
+// Slap Fish - playable characters. Cosmetic only: every character uses the same hitbox and stats.
+// buildCharacter(id, color) returns the parts the renderer animates: { bodyG, footL, footR, hand, tick }.
+//   bodyG  bobs and leans with the waddle, footL/footR swing on z (rest z = 0.03), hand holds the fish.
+//   tick(t) is optional idle animation (claws snapping, goldfish swimming), called once per frame.
+// `color` is the player's color from the sim; every character wears it somewhere so players stay readable.
+
+const CHARACTERS = [
+  { id: 'skipper', name: 'Skipper', tag: 'The classic. Hat, vest, unearned confidence.' },
+  { id: 'gillguy', name: 'Gill Guy', tag: 'Half man, half fish, all slap.' },
+  { id: 'sigma', name: 'Sigma Salmon', tag: 'Up at 4am for cold plunges. He lives in the ocean.' },
+  { id: 'shark', name: 'Sneaker Shark', tag: 'Tralala energy. Three sneakers, zero explanations.' },
+  { id: 'crab', name: 'Rave Crab', tag: 'Has been dancing since 2016. Cannot stop.' },
+  { id: 'capy', name: 'Capy Chill', tag: 'Unbothered. Moisturized. Holding a fish.' },
+  { id: 'dad', name: 'Bucket Hat Dad', tag: '"They\'re biting today." They are not.' },
+  { id: 'captain', name: "Cap'n Barnacle", tag: 'Lost a leg to a sardine. Still holds a grudge.' },
+  { id: 'bowl', name: 'Bowl Boss', tag: 'A goldfish piloting a diving suit. Allegedly.' },
+  { id: 'lobster', name: 'Lobster Lawyer', tag: 'Objection! (Slaps you with a mackerel.)' },
+  { id: 'octo', name: 'Uncle Octo', tag: 'Eight arms. Every one of them slaps.' },
+  { id: 'npc', name: 'Background NPC', tag: 'Default settings. Has a quest for you. The quest is fish.' },
+  { id: 'trench', name: 'Definitely A Guy', tag: 'One normal adult man. Not three fish in a coat.' },
+];
+const DEFAULT_CHARACTER = 'skipper';
+const BY_ID = Object.fromEntries(CHARACTERS.map((c) => [c.id, c]));
+function isCharacter(id) { return !!BY_ID[id]; }
+
+// Bots and players without a pick get a stable character from their id, so every client agrees.
+function characterFor(id, picked) {
+  if (picked && BY_ID[picked]) return picked;
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return CHARACTERS[1 + (h % (CHARACTERS.length - 1))].id;
+}
+
+// ------------------------------------------------------------------ toon kit
+const grad = new THREE.DataTexture(new Uint8Array([110, 190, 255]), 3, 1, THREE.RedFormat);
+grad.minFilter = grad.magFilter = THREE.NearestFilter;
+grad.needsUpdate = true;
+const matCache = {};
+function mat(color, opts) {
+  const key = color + JSON.stringify(opts || {});
+  if (!matCache[key]) matCache[key] = new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: grad }, opts || {}));
+  return matCache[key];
+}
+const geoCache = {};
+function geo(key, make) { return geoCache[key] || (geoCache[key] = make()); }
+const SPH = () => geo('sph', () => new THREE.SphereGeometry(1, 12, 10));
+const LOW = () => geo('low', () => new THREE.SphereGeometry(1, 7, 5));
+const BOX = () => geo('box', () => new THREE.BoxGeometry(1, 1, 1));
+const CYL = () => geo('cyl', () => new THREE.CylinderGeometry(1, 1, 1, 10));
+const CONE = () => geo('cone', () => new THREE.ConeGeometry(1, 1, 8));
+const CAP = (r, l) => geo('cap' + r + ':' + l, () => new THREE.CapsuleGeometry(r, l, 4, 10));
+const TORUS = (r, t) => geo('tor' + r + ':' + t, () => new THREE.TorusGeometry(r, t, 6, 18));
+const TAPER = (a, b) => geo('tap' + a + ':' + b, () => new THREE.CylinderGeometry(a, b, 1, 12));
+
+// put(parent, geometry, color, [x,y,z], scale (number or [x,y,z]), [rx,ry,rz], material opts)
+function put(parent, g, color, p, s, r, opts) {
+  const m = new THREE.Mesh(g, mat(color, opts));
+  m.castShadow = true;
+  m.receiveShadow = true;
+  if (p) m.position.set(p[0], p[1], p[2]);
+  if (s != null) { if (typeof s === 'number') m.scale.setScalar(s); else m.scale.set(s[0], s[1], s[2]); }
+  if (r) m.rotation.set(r[0], r[1], r[2]);
+  if (parent) parent.add(m);
+  return m;
+}
+function group(parent, p) {
+  const g = new THREE.Group();
+  if (p) g.position.set(p[0], p[1], p[2]);
+  if (parent) parent.add(g);
+  return g;
+}
+function darken(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); }
+
+const SKIN = '#ffd7b0';
+const INK = '#10223a';
+
+// The shared frame: a body group, two feet, a left arm nub and the right hand that holds the fish.
+function frame(o) {
+  const bodyG = new THREE.Group();
+  const footL = group(null, [0.17, 0, 0.03]);
+  const footR = group(null, [-0.17, 0, 0.03]);
+  if (o.foot !== false) for (const f of [footL, footR]) put(f, BOX(), o.foot || '#3b3b4f', [0, 0.08, 0], o.footSize || [0.2, 0.15, 0.32]);
+  const hand = group(bodyG, o.handPos || [-0.45, 0.95, 0.35]);
+  if (o.handColor) put(hand, LOW(), o.handColor, null, o.handSize || 0.12);
+  if (o.armColor) put(bodyG, LOW(), o.armColor, [0.48, 0.9, 0.1], 0.12);
+  return { bodyG, footL, footR, hand, tick: null };
+}
+
+function eyes(g, y, z, x, size, color) {
+  put(g, LOW(), color || INK, [x, y, z], size || 0.055);
+  put(g, LOW(), color || INK, [-x, y, z], size || 0.055);
+}
+
+// A fish's head on a person's neck: wide eyes on the sides, pouty lips, a dorsal fin and gill slits.
+function fishHead(g, o) {
+  const y = o.y != null ? o.y : 1.5;
+  const w = o.w || 1;
+  put(g, SPH(), o.body, [0, y, 0.05], [0.4 * w, 0.4, 0.56]);
+  put(g, SPH(), o.belly, [0, y - 0.13, 0.12], [0.34 * w, 0.26, 0.48]);
+  if (o.eyes !== false) {
+    for (const s of [1, -1]) {
+      put(g, LOW(), '#ffffff', [s * 0.3 * w, y + 0.1, 0.24], 0.14);
+      put(g, LOW(), INK, [s * 0.37 * w, y + 0.11, 0.3], 0.07);
+    }
+  }
+  if (o.lips !== false) put(g, SPH(), o.lips || '#ff8fa3', [0, y - 0.06, 0.6], [0.15, 0.08, 0.07]);
+  if (o.fin !== false) put(g, BOX(), o.finColor || darken(o.body, 0.75), [0, y + 0.42, -0.08], [0.05, 0.32, 0.42], [0.35, 0, 0]);
+  for (const s of [1, -1]) put(g, BOX(), darken(o.body, 0.7), [s * 0.37 * w, y - 0.04, -0.14], [0.02, 0.18, 0.05]);
+}
+
+// ------------------------------------------------------------------ the roster
+const BUILD = {
+  skipper(color) {
+    const c = frame({ handColor: SKIN, armColor: color });
+    const b = c.bodyG;
+    put(b, CAP(0.42, 0.45), color, [0, 0.78, 0]);
+    put(b, CAP(0.44, 0.2), '#ffd23f', [0, 0.72, 0], [1, 0.9, 1]);
+    put(b, SPH(), SKIN, [0, 1.5, 0], 0.34);
+    put(b, TAPER(0.26, 0.32), darken(color, 0.8), [0, 1.78, 0], [1, 0.25, 1]);
+    put(b, CYL(), darken(color, 0.8), [0, 1.68, 0], [0.5, 0.05, 0.5]);
+    eyes(b, 1.53, 0.3, 0.12);
+    put(b, LOW(), '#ffb48a', [0, 1.45, 0.34], 0.07);
+    return c;
+  },
+
+  gillguy(color) {
+    const fish = '#4fb39c';
+    const c = frame({ handColor: fish, armColor: fish, foot: '#2f8a78', footSize: [0.26, 0.08, 0.44] });
+    const b = c.bodyG;
+    put(b, CAP(0.42, 0.45), color, [0, 0.78, 0]);
+    put(b, CAP(0.44, 0.2), '#3e5c8a', [0, 0.6, 0], [1, 0.75, 1]);
+    for (const s of [1, -1]) put(b, BOX(), '#3e5c8a', [s * 0.2, 0.98, 0.33], [0.08, 0.4, 0.05], [0.25, 0, 0]);
+    put(b, LOW(), '#ffd23f', [0.2, 0.86, 0.43], 0.04);
+    put(b, LOW(), '#ffd23f', [-0.2, 0.86, 0.43], 0.04);
+    fishHead(b, { body: fish, belly: '#d8f5e8', lips: '#ff8fa3', finColor: '#2f8a78', y: 1.52 });
+    // webbed fins on the elbows
+    put(b, BOX(), '#2f8a78', [0.55, 0.95, 0], [0.04, 0.2, 0.22], [0, 0, -0.4]);
+    return c;
+  },
+
+  sigma(color) {
+    const fish = '#ff8a65';
+    const c = frame({ handColor: fish, armColor: fish });
+    const b = c.bodyG;
+    put(b, CAP(0.44, 0.45), color, [0, 0.78, 0], [1.1, 1, 1]);
+    fishHead(b, { body: fish, belly: '#ffd0bf', lips: '#d9443c', finColor: '#e2614d', eyes: false, y: 1.55 });
+    // wraparound shades, chiseled jaw, gold chain
+    put(b, BOX(), '#111111', [0, 1.66, 0.42], [0.86, 0.12, 0.2]);
+    put(b, BOX(), '#2a2a2a', [0, 1.72, 0.44], [0.86, 0.03, 0.2]);
+    put(b, BOX(), fish, [0, 1.27, 0.2], [0.66, 0.26, 0.52]);
+    put(b, BOX(), darken(fish, 0.85), [0, 1.2, 0.47], [0.36, 0.1, 0.06]);
+    put(b, TORUS(0.3, 0.035), '#ffcc33', [0, 1.13, 0.06], 1, [Math.PI / 2 - 0.35, 0, 0], { emissive: '#664400' });
+    put(b, BOX(), '#ffcc33', [0, 1.0, 0.4], [0.1, 0.12, 0.03], null, { emissive: '#664400' });
+    return c;
+  },
+
+  shark(color) {
+    const grey = '#7f9bb3', belly = '#f4f4f4';
+    const c = frame({ handColor: grey, armColor: grey, foot: false });
+    const b = c.bodyG;
+    put(b, CAP(0.44, 0.5), grey, [0, 0.8, 0]);
+    put(b, CAP(0.36, 0.4), belly, [0, 0.76, 0.12], [1, 1, 0.9]);
+    // big shark head with a toothy grin
+    put(b, SPH(), grey, [0, 1.5, 0.1], [0.44, 0.42, 0.62]);
+    put(b, SPH(), belly, [0, 1.36, 0.2], [0.38, 0.22, 0.52]);
+    put(b, BOX(), '#3a1f2b', [0, 1.4, 0.56], [0.42, 0.08, 0.14]);
+    for (let i = 0; i < 5; i++) put(b, CONE(), '#ffffff', [-0.16 + i * 0.08, 1.42, 0.62], [0.03, 0.07, 0.03], [Math.PI, 0, 0]);
+    eyes(b, 1.62, 0.42, 0.24, 0.05);
+    put(b, CONE(), grey, [0, 1.98, -0.05], [0.07, 0.42, 0.24], [-0.3, 0, 0]);
+    put(b, CONE(), grey, [0, 0.9, -0.55], [0.06, 0.36, 0.2], [-1.9, 0, 0]);
+    put(b, BOX(), grey, [0.5, 1.0, 0.05], [0.04, 0.12, 0.3], [0, 0, -0.6]);
+    // sneakers in the player's color: two that walk, one extra out back that just comes along
+    const sneaker = (g, p) => {
+      put(g, BOX(), color, [p[0], p[1] + 0.1, p[2]], [0.24, 0.16, 0.4]);
+      put(g, BOX(), '#ffffff', [p[0], p[1] + 0.025, p[2] + 0.01], [0.26, 0.05, 0.44]);
+      put(g, BOX(), '#ffffff', [p[0] + 0.125, p[1] + 0.1, p[2] - 0.02], [0.01, 0.05, 0.22], [0, 0, 0]);
+    };
+    sneaker(c.footL, [0, 0, 0]);
+    sneaker(c.footR, [0, 0, 0]);
+    put(b, CYL(), grey, [0, 0.3, -0.42], [0.08, 0.3, 0.08], [0.5, 0, 0]);
+    sneaker(b, [0, 0.0, -0.55]);
+    return c;
+  },
+
+  crab(color) {
+    const red = '#e8452c', pale = '#ffb199';
+    const c = frame({ foot: red, footSize: [0.14, 0.1, 0.2], handPos: [-0.6, 0.95, 0.35] });
+    const b = c.bodyG;
+    put(b, SPH(), red, [0, 0.85, 0], [0.62, 0.42, 0.5]);
+    put(b, SPH(), pale, [0, 0.72, 0.06], [0.54, 0.26, 0.44]);
+    for (const s of [1, -1]) {
+      put(b, LOW(), '#ff7a5c', [s * 0.25, 1.12, 0.08], [0.1, 0.05, 0.1]);
+      put(b, CYL(), red, [s * 0.15, 1.38, 0.22], [0.035, 0.38, 0.035], [0, 0, s * -0.15]);
+      put(b, LOW(), '#ffffff', [s * 0.18, 1.6, 0.24], 0.11);
+      put(b, LOW(), INK, [s * 0.18, 1.6, 0.34], 0.055);
+      for (let i = 0; i < 3; i++) put(b, CYL(), red, [s * 0.58, 0.45, -0.2 + i * 0.18], [0.035, 0.45, 0.035], [0, 0, s * 0.7]);
+    }
+    put(b, BOX(), INK, [0, 0.95, 0.47], [0.16, 0.03, 0.03]);
+    // glow-stick necklace in the player's color
+    put(b, TORUS(0.4, 0.035), color, [0, 1.02, 0.04], [1, 1, 1], [Math.PI / 2 - 0.2, 0, 0], { emissive: color, emissiveIntensity: 0.6 });
+    // big snapping claws
+    const claw = (g, scale) => {
+      put(g, SPH(), red, [0, 0, 0], [0.16 * scale, 0.13 * scale, 0.2 * scale]);
+      const top = group(g, [0, 0.04 * scale, 0.12 * scale]);
+      put(top, SPH(), red, [0, 0.05 * scale, 0.1 * scale], [0.07 * scale, 0.05 * scale, 0.16 * scale]);
+      put(g, SPH(), red, [0, -0.06 * scale, 0.22 * scale], [0.07 * scale, 0.05 * scale, 0.14 * scale]);
+      return top;
+    };
+    const armL = group(b, [0.62, 0.95, 0.2]);
+    put(armL, CYL(), red, [-0.05, -0.05, -0.1], [0.05, 0.3, 0.05], [1.0, 0, 0.3]);
+    const pincerL = claw(armL, 1.5);
+    const pincerR = claw(c.hand, 0.9);
+    c.tick = (t) => {
+      pincerL.rotation.x = -Math.abs(Math.sin(t * 6)) * 0.6;
+      pincerR.rotation.x = -Math.abs(Math.sin(t * 6 + 1.5)) * 0.5;
+    };
+    return c;
+  },
+
+  capy(color) {
+    const fur = '#a0703f', dark = '#6b4526';
+    const c = frame({ handColor: fur, armColor: fur, foot: dark, footSize: [0.2, 0.13, 0.28] });
+    const b = c.bodyG;
+    put(b, CAP(0.46, 0.4), fur, [0, 0.78, 0], [1.05, 1, 1]);
+    put(b, SPH(), fur, [0, 1.42, 0.1], [0.36, 0.33, 0.5]);
+    put(b, SPH(), dark, [0, 1.38, 0.52], [0.22, 0.17, 0.13]);
+    put(b, LOW(), INK, [0.07, 1.42, 0.63], 0.025);
+    put(b, LOW(), INK, [-0.07, 1.42, 0.63], 0.025);
+    for (const s of [1, -1]) {
+      put(b, BOX(), INK, [s * 0.18, 1.52, 0.4], [0.1, 0.022, 0.03], [0, 0, s * 0.1]);
+      put(b, LOW(), dark, [s * 0.22, 1.72, -0.08], [0.07, 0.06, 0.04]);
+    }
+    // the yuzu on top, and a scarf in the player's color
+    put(b, SPH(), '#ff9a1f', [0, 1.86, 0.05], 0.15);
+    put(b, BOX(), '#4caf50', [0.06, 2.02, 0.05], [0.12, 0.02, 0.06], [0, 0, 0.4]);
+    put(b, TORUS(0.32, 0.07), color, [0, 1.16, 0.05], 1, [Math.PI / 2 - 0.15, 0, 0]);
+    put(b, BOX(), color, [0.18, 0.98, 0.32], [0.12, 0.3, 0.06], [0.2, 0, 0.2]);
+    return c;
+  },
+
+  dad(color) {
+    const khaki = '#c8b38a';
+    const c = frame({ handColor: SKIN, armColor: color, foot: false });
+    const b = c.bodyG;
+    put(b, CAP(0.45, 0.45), color, [0, 0.78, 0], [1.12, 1, 1.08]);
+    for (let i = 0; i < 4; i++) put(b, LOW(), '#ffffff', [-0.2 + i * 0.13, 0.62 + (i % 2) * 0.28, 0.46], [0.06, 0.06, 0.02]);
+    for (const s of [1, -1]) {
+      put(b, BOX(), khaki, [s * 0.3, 0.8, 0.28], [0.22, 0.62, 0.22]);
+      put(b, BOX(), darken(khaki, 0.85), [s * 0.3, 0.75, 0.4], [0.16, 0.14, 0.03]);
+    }
+    put(b, SPH(), SKIN, [0, 1.5, 0], 0.34);
+    // bucket hat with lures stuck in it
+    put(b, TAPER(0.3, 0.34), khaki, [0, 1.76, 0], [1, 0.24, 1]);
+    put(b, TAPER(0.36, 0.52), khaki, [0, 1.65, 0], [1, 0.08, 1]);
+    put(b, LOW(), '#ff3b3b', [0.25, 1.78, 0.15], 0.04);
+    put(b, LOW(), '#3fa7ff', [-0.2, 1.8, 0.2], 0.04);
+    put(b, LOW(), '#ffd23f', [0.05, 1.82, 0.3], 0.035);
+    // aviators and the mustache
+    for (const s of [1, -1]) put(b, SPH(), '#1b2a3a', [s * 0.13, 1.53, 0.3], [0.1, 0.07, 0.03]);
+    put(b, BOX(), '#c0c0c0', [0, 1.55, 0.32], [0.08, 0.015, 0.015]);
+    put(b, BOX(), '#6b4526', [0, 1.4, 0.32], [0.24, 0.06, 0.06]);
+    // white socks and sandals
+    for (const f of [c.footL, c.footR]) {
+      put(f, CYL(), '#ffffff', [0, 0.17, -0.04], [0.09, 0.22, 0.09]);
+      put(f, BOX(), '#8a5a2b', [0, 0.03, 0.02], [0.22, 0.06, 0.36]);
+      put(f, BOX(), '#5a3a1a', [0, 0.08, 0.06], [0.22, 0.03, 0.06]);
+    }
+    return c;
+  },
+
+  captain(color) {
+    const c = frame({ handColor: SKIN, armColor: color, foot: false });
+    const b = c.bodyG;
+    put(b, CAP(0.43, 0.48), color, [0, 0.78, 0]);
+    for (let i = 0; i < 3; i++) for (const s of [1, -1]) put(b, LOW(), '#ffcc33', [s * 0.12, 0.6 + i * 0.18, 0.42], 0.035, null, { emissive: '#664400' });
+    put(b, SPH(), SKIN, [0, 1.5, 0], 0.34);
+    put(b, SPH(), '#f2f2f2', [0, 1.33, 0.14], [0.34, 0.3, 0.24]);
+    put(b, BOX(), '#f2f2f2', [0, 1.43, 0.32], [0.22, 0.05, 0.05]);
+    put(b, LOW(), '#ff9a8a', [0, 1.5, 0.34], 0.07);
+    eyes(b, 1.58, 0.3, 0.12);
+    put(b, BOX(), '#f2f2f2', [0.12, 1.65, 0.3], [0.12, 0.03, 0.03]);
+    put(b, BOX(), '#f2f2f2', [-0.12, 1.65, 0.3], [0.12, 0.03, 0.03]);
+    // captain's hat
+    put(b, TAPER(0.38, 0.3), '#ffffff', [0, 1.82, 0], [1, 0.2, 1]);
+    put(b, CYL(), '#1d2b4a', [0, 1.72, 0.04], [0.34, 0.05, 0.36]);
+    put(b, BOX(), '#1d2b4a', [0, 1.69, 0.32], [0.36, 0.03, 0.18], [0.2, 0, 0]);
+    put(b, LOW(), '#ffcc33', [0, 1.8, 0.34], [0.07, 0.06, 0.03], null, { emissive: '#664400' });
+    // one boot, one peg
+    put(c.footL, BOX(), '#2a2a2a', [0, 0.1, 0], [0.22, 0.2, 0.32]);
+    put(c.footR, CYL(), '#8a5a2b', [0, 0.18, -0.02], [0.06, 0.36, 0.06]);
+    return c;
+  },
+
+  bowl(color) {
+    const brass = '#c9a24a', glove = '#5d6470';
+    const c = frame({ handColor: glove, armColor: glove, foot: '#4a4f58', footSize: [0.24, 0.2, 0.36] });
+    const b = c.bodyG;
+    put(b, CAP(0.45, 0.45), color, [0, 0.78, 0]);
+    put(b, BOX(), '#4a4f58', [0, 0.55, 0.38], [0.5, 0.08, 0.1]);
+    put(b, BOX(), brass, [0, 0.82, 0.42], [0.2, 0.2, 0.06]);
+    put(b, TORUS(0.32, 0.07), brass, [0, 1.17, 0], 1, [Math.PI / 2, 0, 0]);
+    // the bowl, the water, the actual pilot
+    put(b, SPH(), '#3fa7ff', [0, 1.5, 0], 0.37, null, { transparent: true, opacity: 0.35, depthWrite: false });
+    put(b, SPH(), '#d6f6ff', [0, 1.55, 0], 0.44, null, { transparent: true, opacity: 0.28, depthWrite: false });
+    const fishG = group(b, [0, 1.55, 0]);
+    const swim = group(fishG, [0.16, 0, 0]);
+    put(swim, SPH(), '#ff8a1f', [0, 0, 0], [0.07, 0.09, 0.13]);
+    put(swim, BOX(), '#ffb24a', [0, 0, -0.15], [0.02, 0.12, 0.08]);
+    put(swim, LOW(), INK, [0.05, 0.03, 0.08], 0.02);
+    put(swim, LOW(), INK, [-0.05, 0.03, 0.08], 0.02);
+    swim.rotation.y = Math.PI / 2;
+    for (let i = 0; i < 3; i++) put(b, LOW(), '#ffffff', [-0.15 + i * 0.1, 1.68 + i * 0.07, 0.2], 0.025, null, { transparent: true, opacity: 0.7 });
+    c.tick = (t) => {
+      fishG.rotation.y = t * 1.6;
+      swim.position.y = Math.sin(t * 3) * 0.04;
+    };
+    return c;
+  },
+
+  lobster(color) {
+    const red = '#d7372b', suit = '#2b2f3a';
+    const c = frame({ armColor: suit, foot: '#1a1a1a' });
+    const b = c.bodyG;
+    put(b, CAP(0.43, 0.45), suit, [0, 0.78, 0]);
+    put(b, BOX(), '#ffffff', [0, 0.95, 0.38], [0.18, 0.36, 0.06], [0.15, 0, 0]);
+    put(b, BOX(), color, [0, 0.93, 0.42], [0.08, 0.3, 0.03], [0.15, 0, 0]);
+    put(b, BOX(), color, [0, 1.1, 0.41], [0.1, 0.06, 0.04]);
+    put(b, SPH(), red, [0, 1.5, 0.05], [0.34, 0.38, 0.42]);
+    for (const s of [1, -1]) {
+      put(b, CYL(), red, [s * 0.12, 1.86, 0.18], [0.03, 0.22, 0.03]);
+      put(b, LOW(), INK, [s * 0.12, 1.98, 0.18], 0.06);
+      put(b, CYL(), red, [s * 0.18, 1.95, -0.25], [0.012, 0.9, 0.012], [-0.9, 0, s * 0.3]);
+      put(b, CYL(), '#ffb199', [s * 0.12, 1.36, 0.42], [0.012, 0.22, 0.012], [0, 0, s * 1.2]);
+    }
+    put(b, BOX(), darken(red, 0.7), [0, 1.42, 0.46], [0.2, 0.04, 0.04]);
+    // briefcase in the off hand, a claw on the fish hand
+    put(b, BOX(), '#6b4526', [0.52, 0.55, 0.1], [0.1, 0.32, 0.42]);
+    put(b, BOX(), '#ffcc33', [0.52, 0.73, 0.1], [0.05, 0.04, 0.12]);
+    put(c.hand, SPH(), red, [0, 0, 0.05], [0.12, 0.1, 0.18]);
+    put(c.hand, SPH(), red, [0, 0.06, 0.18], [0.05, 0.04, 0.1]);
+    return c;
+  },
+
+  octo(color) {
+    const purple = '#9b59d0', spot = '#c79bf0';
+    const c = frame({ handColor: purple, foot: false });
+    const b = c.bodyG;
+    put(b, SPH(), purple, [0, 1.3, -0.05], [0.5, 0.58, 0.5]);
+    for (const p of [[0.25, 1.62, 0.28], [-0.3, 1.45, 0.3], [0.1, 1.82, 0.05], [-0.15, 1.15, 0.4]]) put(b, LOW(), spot, p, [0.07, 0.07, 0.03]);
+    for (const s of [1, -1]) {
+      put(b, LOW(), '#ffffff', [s * 0.17, 1.28, 0.4], 0.13);
+      put(b, LOW(), INK, [s * 0.17, 1.28, 0.51], 0.06);
+    }
+    put(b, TORUS(0.12, 0.018), '#ffcc33', [-0.17, 1.28, 0.53], 1, null, { emissive: '#664400' });
+    put(b, CYL(), '#ffcc33', [-0.26, 1.08, 0.5], [0.006, 0.3, 0.006], [0, 0, 0.3]);
+    // tiny top hat, bow tie
+    put(b, CYL(), '#1a1a1a', [0.08, 1.92, 0], [0.24, 0.03, 0.24], [0, 0, -0.2]);
+    put(b, CYL(), '#1a1a1a', [0.1, 2.06, 0], [0.16, 0.26, 0.16], [0, 0, -0.2]);
+    put(b, CYL(), color, [0.09, 1.98, 0], [0.165, 0.06, 0.165], [0, 0, -0.2]);
+    put(b, CONE(), color, [0.09, 0.88, 0.42], [0.08, 0.14, 0.08], [0, 0, Math.PI / 2]);
+    put(b, CONE(), color, [-0.09, 0.88, 0.42], [0.08, 0.14, 0.08], [0, 0, -Math.PI / 2]);
+    // tentacles
+    const arms = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.3;
+      const t = group(b, [Math.sin(a) * 0.28, 0.85, Math.cos(a) * 0.28]);
+      t.rotation.y = a;
+      put(t, TAPER(0.05, 0.11), purple, [0, -0.38, 0.12], [1, 0.85, 1], [0.35, 0, 0]);
+      put(t, LOW(), spot, [0, -0.78, 0.28], [0.07, 0.05, 0.1]);
+      arms.push(t);
+    }
+    for (const f of [c.footL, c.footR]) put(f, LOW(), purple, [0, 0.06, 0.05], [0.12, 0.06, 0.16]);
+    put(b, TAPER(0.04, 0.08), purple, [0.45, 0.95, 0.1], [1, 0.5, 1], [0, 0, 1.2]);
+    c.tick = (t) => arms.forEach((a, i) => { a.rotation.x = Math.sin(t * 3 + i) * 0.15; });
+    return c;
+  },
+
+  npc(color) {
+    const grey = '#a2a8ae';
+    const c = frame({ handColor: grey, armColor: grey, foot: '#6d7379' });
+    const b = c.bodyG;
+    put(b, CAP(0.42, 0.45), grey, [0, 0.78, 0]);
+    put(b, CAP(0.43, 0.08), color, [0, 0.5, 0], [1, 0.8, 1]);
+    put(b, SPH(), grey, [0, 1.5, 0], 0.34);
+    eyes(b, 1.54, 0.31, 0.11, 0.035);
+    put(b, BOX(), INK, [0, 1.42, 0.32], [0.14, 0.015, 0.02]);
+    // the quest marker
+    const q = group(b, [0, 2.35, 0]);
+    put(q, BOX(), '#ffd23f', [0, 0.12, 0], [0.1, 0.32, 0.1], null, { emissive: '#7a5a00' });
+    put(q, BOX(), '#ffd23f', [0, -0.15, 0], [0.1, 0.1, 0.1], null, { emissive: '#7a5a00' });
+    c.tick = (t) => { q.position.y = 2.35 + Math.sin(t * 3) * 0.06; q.rotation.y = t * 2; };
+    return c;
+  },
+
+  trench(color) {
+    const coat = '#b08850', fish = '#6f9fc0', belly = '#e6f0f5';
+    const c = frame({ handColor: fish, armColor: coat, foot: '#4a3018' });
+    const b = c.bodyG;
+    put(b, TAPER(0.38, 0.5), coat, [0, 0.8, 0], [1, 1.25, 1]);
+    for (const s of [1, -1]) put(b, BOX(), darken(coat, 0.8), [s * 0.14, 1.22, 0.3], [0.16, 0.3, 0.06], [0.3, 0, s * -0.4]);
+    put(b, TORUS(0.45, 0.04), color, [0, 0.72, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+    for (let i = 0; i < 2; i++) put(b, LOW(), '#3a2a18', [0.1, 0.5 + i * 0.2, 0.47], 0.03);
+    // fish #1: the head, in a fedora
+    fishHead(b, { body: fish, belly, finColor: '#4d7c9c', lips: '#ff8fa3', y: 1.55, fin: false });
+    put(b, CYL(), '#5a3a1a', [0, 1.88, 0.02], [0.5, 0.04, 0.5]);
+    put(b, TAPER(0.24, 0.3), '#5a3a1a', [0, 2.0, 0.02], [1, 0.22, 1]);
+    put(b, CYL(), color, [0, 1.94, 0.02], [0.305, 0.06, 0.305]);
+    // fish #2 peeks out between the lapels, fish #3's tail hangs out the back
+    put(b, SPH(), fish, [0, 1.0, 0.4], [0.13, 0.12, 0.12]);
+    put(b, LOW(), '#ffffff', [0.06, 1.04, 0.5], 0.04);
+    put(b, LOW(), INK, [0.06, 1.04, 0.53], 0.02);
+    put(b, CONE(), fish, [0, 0.22, -0.45], [0.18, 0.3, 0.05], [Math.PI - 0.5, 0, 0]);
+    return c;
+  },
+};
+
+function buildCharacter(id, color) {
+  return (BUILD[id] || BUILD[DEFAULT_CHARACTER])(color);
+}
+
+// A standalone figure for menus and previews: the character with its feet attached.
+function buildFigure(id, color) {
+  const c = buildCharacter(id, color);
+  const root = new THREE.Group();
+  root.add(c.bodyG, c.footL, c.footR);
+  root.userData = c;
+  return root;
+}
+
+return { CHARACTERS, DEFAULT_CHARACTER, isCharacter, characterFor, buildCharacter, buildFigure };
+})();
+
+// ---- charselect.js
+const { getCharacter, setCharacter, characterName, openCharacterSelect, isCharacterSelectOpen } = (() => {
+// Slap Fish - character select screen. Self-contained: it injects its own overlay and styles.
+// Hook for menus:
+//   openCharacterSelect({ color, onPick, onClose })  shows the screen; onPick(id) fires on "Lock in"
+//   getCharacter() / setCharacter(id)               the saved pick (localStorage 'slapfish.char')
+//   characterName(id)                                display name for buttons and lobby lists
+
+const KEY = 'slapfish.char';
+function getCharacter() {
+  try { const v = localStorage.getItem(KEY); if (isCharacter(v)) return v; } catch (e) {}
+  return DEFAULT_CHARACTER;
+}
+function setCharacter(id) {
+  if (!isCharacter(id)) return;
+  try { localStorage.setItem(KEY, id); } catch (e) {}
+}
+function characterName(id) { const c = CHARACTERS.find((q) => q.id === id); return c ? c.name : CHARACTERS[0].name; }
+
+const CSS = `
+#charsel { position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto;
+  background: linear-gradient(180deg, #7fd6f0f2, #1fa3c9f8); font-family: 'Baloo 2', system-ui, sans-serif; color: #10223a; }
+#charsel .cs-card { width: min(980px, 100%); }
+#charsel h1 { margin: 0 0 14px; text-align: center; font-size: clamp(34px, 7vw, 72px); line-height: .9; font-weight: 900; color: #ff5a5f;
+  -webkit-text-stroke: .045em #10223a; filter: drop-shadow(0 6px 0 #10223a); letter-spacing: 1px; }
+#charsel h1 span { color: #ffd23f; }
+#charsel .cs-panel { background: #fff8ec; border-radius: 22px; padding: 14px; box-shadow: 0 8px 0 #10223a55; }
+#charsel .cs-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; }
+#charsel .cs-stage { position: relative; background: radial-gradient(circle at 50% 70%, #ffffff, #cdeffa 70%); border-radius: 22px; box-shadow: 0 8px 0 #10223a55; border: 3px solid #10223a; min-height: 360px; overflow: hidden; cursor: grab; touch-action: none; }
+#charsel .cs-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#charsel .cs-info { position: absolute; left: 12px; right: 12px; top: 10px; text-align: center; pointer-events: none; }
+#charsel .cs-name { font-size: 32px; font-weight: 900; line-height: 1.05; color: #fff; -webkit-text-stroke: 1.5px #10223a; text-shadow: 0 3px 0 #10223a; }
+#charsel .cs-tag { font-size: 15px; font-weight: 700; line-height: 1.2; }
+#charsel .cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; align-content: start; max-height: 420px; overflow-y: auto; padding: 2px; }
+#charsel .cs-pick { border: 3px solid transparent; background: #10223a10; border-radius: 14px; padding: 4px 4px 6px; cursor: pointer; font: inherit; color: inherit; text-align: center; }
+#charsel .cs-pick:hover { background: #10223a1c; }
+#charsel .cs-pick { transition: transform .12s; }
+#charsel .cs-pick:hover { transform: translateY(-2px) rotate(-1deg); }
+#charsel .cs-pick.on { border-color: #10223a; background: #ffd23f; box-shadow: 0 4px 0 #10223a; }
+#charsel .cs-pick img, #charsel .cs-pick .ph { width: 100%; aspect-ratio: 1; display: block; border-radius: 10px; }
+#charsel .cs-pick .ph { background: #10223a10; }
+#charsel .cs-pick b { display: block; font-size: 13px; line-height: 1.1; margin-top: 2px; }
+#charsel .cs-actions { display: flex; gap: 14px; margin-top: 18px; }
+#charsel .cs-actions button { flex: 1; border: 0; border-radius: 22px; padding: 14px 22px; font: inherit; font-size: clamp(24px, 3.6vw, 36px); font-weight: 900; cursor: pointer;
+  box-shadow: 0 8px 0 #10223a; color: #fff; -webkit-text-stroke: 1.5px #10223a; transition: transform .12s; }
+#charsel .cs-actions button:hover { transform: translateY(-3px) rotate(-1deg) scale(1.02); }
+#charsel .cs-actions button:active { transform: translateY(5px); box-shadow: 0 3px 0 #10223a; }
+#charsel .cs-go { background: #ff5a5f; }
+#charsel .cs-back { background: #fff8ec; color: #10223a !important; -webkit-text-stroke: 0 !important; flex: 0 0 30% !important; font-size: clamp(20px, 3vw, 28px) !important; }
+#charsel .cs-hint { text-align: center; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 2px 0 #10223a; margin-top: 12px; }
+@media (max-width: 720px) {
+  #charsel { align-items: flex-start; padding: 12px; }
+  #charsel h1 { font-size: 30px; }
+  #charsel .cs-body { grid-template-columns: 1fr; gap: 10px; }
+  #charsel .cs-stage { min-height: 0; height: 36vh; }
+  #charsel .cs-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); max-height: none; }
+  #charsel .cs-name { font-size: 22px; }
+  #charsel .cs-tag { font-size: 13px; }
+  #charsel .cs-hint { display: none; }
+}`;
+
+let ui = null; // built once, reused
+let open = null; // { id, color, onPick, onClose, raf }
+
+function build() {
+  const style = document.createElement('style');
+  style.textContent = CSS;
+  document.head.appendChild(style);
+  const root = document.createElement('div');
+  root.id = 'charsel';
+  root.style.display = 'none';
+  root.innerHTML = `<div class="cs-card" role="dialog" aria-label="Choose your character">
+    <h1>PICK YOUR <span>ANGLER</span></h1>
+    <div class="cs-body">
+      <div class="cs-stage"><canvas></canvas><div class="cs-info"><div class="cs-name"></div><div class="cs-tag"></div></div></div>
+      <div class="cs-panel"><div class="cs-grid"></div></div>
+    </div>
+    <div class="cs-actions"><button class="cs-back">Back</button><button class="cs-go">▶ LOCK IN</button></div>
+    <div class="cs-hint">Arrow keys to browse, Enter to lock in. Drag to spin. Looks only: every angler has the same moves.</div>
+  </div>`;
+  document.body.appendChild(root);
+  const q = (s) => root.querySelector(s);
+  const canvas = q('canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight('#fff6e0', '#2a7fa8', 1.5));
+  const sun = new THREE.DirectionalLight('#fff3d6', 2.2);
+  sun.position.set(3, 6, 5);
+  scene.add(sun);
+  const plank = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 0.18, 24), new THREE.MeshToonMaterial({ color: '#c8935a' }));
+  plank.position.y = -0.09;
+  scene.add(plank);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+  const turn = new THREE.Group();
+  scene.add(turn);
+
+  const grid = q('.cs-grid');
+  grid.innerHTML = CHARACTERS.map((c) => `<button class="cs-pick" data-id="${c.id}" title="${c.name}"><div class="ph"></div><b>${c.name}</b></button>`).join('');
+  grid.addEventListener('click', (e) => {
+    const b = e.target.closest('.cs-pick');
+    if (b) select(b.dataset.id);
+  });
+  grid.addEventListener('dblclick', (e) => { if (e.target.closest('.cs-pick')) lockIn(); });
+  q('.cs-go').onclick = lockIn;
+  q('.cs-back').onclick = close;
+
+  // drag to spin
+  let drag = null, spin = 0, spinV = 0.6;
+  const stage = q('.cs-stage');
+  stage.addEventListener('pointerdown', (e) => { drag = e.clientX; stage.setPointerCapture(e.pointerId); stage.style.cursor = 'grabbing'; });
+  stage.addEventListener('pointermove', (e) => { if (drag == null) return; spin += (e.clientX - drag) * 0.012; spinV = (e.clientX - drag) * 0.4; drag = e.clientX; });
+  const endDrag = () => { drag = null; stage.style.cursor = ''; };
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('keydown', (e) => {
+    if (!open) return;
+    const ids = CHARACTERS.map((c) => c.id);
+    const i = ids.indexOf(open.id);
+    const cols = Math.max(1, Math.round(grid.clientWidth / (grid.querySelector('.cs-pick').offsetWidth + 8)));
+    let n = null;
+    if (e.key === 'ArrowRight') n = i + 1; else if (e.key === 'ArrowLeft') n = i - 1;
+    else if (e.key === 'ArrowDown') n = i + cols; else if (e.key === 'ArrowUp') n = i - cols;
+    else if (e.key === 'Enter') { e.preventDefault(); lockIn(); return; }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+    select(ids[(n + ids.length) % ids.length]);
+  }, true);
+
+  function size() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(1, h);
+    camera.updateProjectionMatrix();
+    const dist = camera.aspect < 0.9 ? 8.2 : camera.aspect > 1.6 ? 6.2 : 6.8;
+    camera.position.set(0, 1.7, dist);
+    camera.lookAt(0, 1.3, 0);
+  }
+
+  // one-time portrait thumbnails, rendered with the same renderer
+  function thumbs(color) {
+    renderer.setSize(192, 192, false);
+    camera.aspect = 1;
+    camera.updateProjectionMatrix();
+    camera.position.set(0, 1.7, 4.6);
+    camera.lookAt(0, 1.0, 0);
+    plank.visible = false;
+    for (const c of CHARACTERS) {
+      turn.clear();
+      const fig = buildFigure(c.id, color);
+      fig.rotation.y = -0.45;
+      turn.add(fig);
+      if (fig.userData.tick) fig.userData.tick(0.4);
+      renderer.render(scene, camera);
+      const img = document.createElement('img');
+      img.alt = c.name;
+      img.src = canvas.toDataURL('image/png');
+      const ph = grid.querySelector(`[data-id="${c.id}"] .ph, [data-id="${c.id}"] img`);
+      ph.replaceWith(img);
+    }
+    plank.visible = true;
+    turn.clear();
+  }
+
+  let fig = null;
+  function show(id, color) {
+    turn.clear();
+    fig = buildFigure(id, color);
+    turn.add(fig);
+  }
+  function loop(now) {
+    if (!open) return;
+    const t = now / 1000;
+    if (drag == null) { spinV += (0.6 - spinV) * 0.03; spin += spinV * 0.016; }
+    turn.rotation.y = spin;
+    if (fig) {
+      const u = fig.userData;
+      u.bodyG.position.y = Math.abs(Math.sin(t * 2.2)) * 0.06;
+      if (u.tick) u.tick(t);
+    }
+    renderer.render(scene, camera);
+    open.raf = requestAnimationFrame(loop);
+  }
+  window.addEventListener('resize', () => { if (open) size(); });
+
+  return { root, q, grid, show, size, thumbs, loop, thumbColor: null };
+}
+
+function select(id) {
+  if (!open || !isCharacter(id)) return;
+  open.id = id;
+  const c = CHARACTERS.find((x) => x.id === id);
+  ui.q('.cs-name').textContent = c.name;
+  ui.q('.cs-tag').textContent = c.tag;
+  ui.grid.querySelectorAll('.cs-pick').forEach((b) => b.classList.toggle('on', b.dataset.id === id));
+  const on = ui.grid.querySelector('.cs-pick.on');
+  if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+  ui.show(id, open.color);
+}
+
+function lockIn() {
+  if (!open) return;
+  const { id, onPick } = open;
+  setCharacter(id);
+  close(true);
+  if (onPick) onPick(id);
+}
+
+function close(picked) {
+  if (!open) return;
+  cancelAnimationFrame(open.raf);
+  const cb = open.onClose;
+  open = null;
+  ui.root.style.display = 'none';
+  if (picked !== true && cb) cb();
+}
+
+function openCharacterSelect(opts) {
+  opts = opts || {};
+  if (!ui) ui = build();
+  const color = opts.color || '#ff5a5f';
+  open = { id: getCharacter(), color, onPick: opts.onPick, onClose: opts.onClose, raf: 0 };
+  ui.root.style.display = '';
+  if (ui.thumbColor !== color) { ui.thumbs(color); ui.thumbColor = color; }
+  ui.size();
+  select(opts.current && isCharacter(opts.current) ? opts.current : open.id);
+  open.raf = requestAnimationFrame(ui.loop);
+}
+function isCharacterSelectOpen() { return !!open; }
+
+return { getCharacter, setCharacter, characterName, openCharacterSelect, isCharacterSelectOpen };
+})();
+
+// Slap Fish - browser client: rendering, input, HUD, and either a local sim (vs bots) or an online connection.
 
 const Sim = window.SlapSim;
 const { WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, GADGETS, MAPS, CFG } = Sim;
@@ -3200,31 +3877,12 @@ function makeFish(id) {
 const SKIN = '#ffd7b0';
 function darken(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); }
 
-function makePlayer(color) {
+function makePlayer(color, char) {
   const root = new THREE.Group();
-  const bodyG = new THREE.Group();
-  root.add(bodyG);
-  const body = mesh(new THREE.CapsuleGeometry(0.42, 0.45, 4, 10), color);
-  body.position.y = 0.78;
-  const vest = mesh(new THREE.CapsuleGeometry(0.44, 0.2, 4, 10), '#ffd23f');
-  vest.position.y = 0.72;
-  vest.scale.set(1, 0.9, 1);
-  const head = mesh(new THREE.SphereGeometry(0.34, 12, 10), SKIN);
-  head.position.y = 1.5;
-  const hatTop = mesh(new THREE.CylinderGeometry(0.26, 0.32, 0.25, 10), darken(color, 0.8));
-  hatTop.position.y = 1.78;
-  const brim = mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 12), darken(color, 0.8));
-  brim.position.y = 1.68;
-  const eyeL = mesh(lowSphere, '#10223a'); eyeL.scale.setScalar(0.055); eyeL.position.set(0.12, 1.53, 0.3);
-  const eyeR = eyeL.clone(); eyeR.position.x = -0.12;
-  const nose = mesh(lowSphere, '#ffb48a'); nose.scale.setScalar(0.07); nose.position.set(0, 1.45, 0.34);
-  const footL = mesh(new THREE.BoxGeometry(0.2, 0.15, 0.32), '#3b3b4f'); footL.position.set(0.17, 0.08, 0.03);
-  const footR = footL.clone(); footR.position.x = -0.17;
-  const armL = mesh(lowSphere, color); armL.scale.set(0.12, 0.12, 0.12); armL.position.set(0.48, 0.9, 0.1);
-  const hand = new THREE.Group(); hand.position.set(-0.45, 0.95, 0.35);
-  const armR = mesh(lowSphere, SKIN); armR.scale.setScalar(0.12); hand.add(armR);
-  bodyG.add(body, vest, head, hatTop, brim, eyeL, eyeR, nose, armL, hand);
-  root.add(footL, footR);
+  // the character supplies the body, feet and fish hand; everything below is shared gameplay dressing
+  const ch = buildCharacter(char, color);
+  const { bodyG, hand, footL, footR } = ch;
+  root.add(bodyG, footL, footR);
   // ring on the ground in the player's color
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.78, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }));
   ring.rotation.x = -Math.PI / 2;
@@ -3248,7 +3906,7 @@ function makePlayer(color) {
   armorShell.rotation.x = -1.2;
   armorShell.visible = false;
   bodyG.add(armorShell);
-  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, ring, fishId: null, fishMesh: null, walk: 0 };
+  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, ring, tick: ch.tick, fishId: null, fishMesh: null, walk: 0 };
   return root;
 }
 
@@ -3640,7 +4298,7 @@ function localSource(opts) {
   const r = opts.round, team = !!Sim.TEAM_MODES[r];
   const g = Sim.createGame({ map: opts.map, teams: opts.teams, mode: team ? r : r === 'rounds' ? 'rounds' : 'timed', roundSeconds: team || r === 'rounds' ? undefined : +r });
   buildMap(g.world);
-  g.addPlayer('me', opts.name, false);
+  g.addPlayer('me', opts.name, false, undefined, opts.char);
   const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel', 'Kelp Kelly', 'Mack Rell'];
   for (let i = 0; i < opts.bots; i++) g.addPlayer('bot' + i, names[i % names.length], true, opts.difficulty);
   g.start();
@@ -3668,7 +4326,7 @@ function localSource(opts) {
   return src;
 }
 
-function netSource(url, room, name, onLobby, onClose) {
+function netSource(url, room, name, char, onLobby, onClose) {
   const ws = new WebSocket(url);
   let lastSnapAt = 0, interval = 50, sendAcc = 0, seq = 0;
   const hist = []; // inputs the server hasn't acknowledged yet, replayed for prediction
@@ -3708,11 +4366,12 @@ function netSource(url, room, name, onLobby, onClose) {
         pending.dash = pending.fish = pending.use = pending.gadget = false;
       }
     },
+    setChar(c) { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'char', char: c })); },
     start(round, bots, map, teams) { ws.send(JSON.stringify({ t: 'start', round, bots, map, teams })); },
     restart() { ws.send(JSON.stringify({ t: 'start' })); },
     stop() { try { ws.close(); } catch (e) {} },
   };
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', room, name }));
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', room, name, char }));
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.t === 'welcome') src.myId = msg.id;
@@ -3777,7 +4436,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
     let v = views.players.get(p.id);
     if (v && v.color !== p.color) { scene.remove(v.obj, v.line, v.bobber); if (v.ice) scene.remove(v.ice); v.tag.remove(); views.players.delete(p.id); v = null; }
     if (!v) {
-      const obj = makePlayer(p.color);
+      const char = characterFor(p.id, p.char);
+      const obj = makePlayer(p.color, char);
       scene.add(obj);
       const tag = document.createElement('div');
       tag.className = 'tag';
@@ -3794,10 +4454,11 @@ function syncPlayers(s, prev, alpha, t, dt) {
       tierRing.rotation.x = -Math.PI / 2;
       bobber.add(tierRing);
       scene.add(bobber);
-      v = { obj, tag, line, bobber, tierRing, x: p.x, z: p.z, y: 0, rippleT: 0, color: p.color };
+      v = { obj, tag, line, bobber, tierRing, char, x: p.x, z: p.z, y: 0, rippleT: 0, color: p.color };
       views.players.set(p.id, v);
     }
     const o = v.obj, u = o.userData;
+    if (u.tick) u.tick(t);
     let pos = interp(prev && prev.players, p, alpha);
     if (p.id === source.myId && source.pred) {
       source.off.x *= Math.exp(-dt * 10); source.off.z *= Math.exp(-dt * 10);
@@ -4726,7 +5387,7 @@ $('btnSolo').onclick = () => {
   // team games fill the teams with bots: 2v2, 3v3, or three teams of two
   const team = !!Sim.TEAM_MODES[getRound()], fmt = getTeams();
   const teams = team ? +fmt[0] : 0, size = team ? +fmt[2] : 0;
-  beginPlay(localSource({ name: $('name').value || 'You', bots: team ? teams * size - 1 : +getBots(), teams, difficulty: getDiff(), round: getRound(), map: getMap() }));
+  beginPlay(localSource({ name: $('name').value || 'You', char: getCharacter(), bots: team ? teams * size - 1 : +getBots(), teams, difficulty: getDiff(), round: getRound(), map: getMap() }));
 };
 $('btnOnline').onclick = () => {
   saveName();
@@ -4750,10 +5411,10 @@ $('btnConnect').onclick = () => {
   if (netSrc) netSrc.stop();
   clearViews();
   $('netStatus').textContent = 'Connecting…';
-  netSrc = netSource($('server').value.trim(), $('room').value.trim() || 'pier', $('name').value || 'Angler', (msg) => {
+  netSrc = netSource($('server').value.trim(), $('room').value.trim() || 'pier', $('name').value || 'Angler', getCharacter(), (msg) => {
     $('netStatus').textContent = 'Connected. Share the room name with friends.';
     $('lobby').classList.remove('hidden');
-    $('lobbyList').innerHTML = msg.players.map((p) => `<li><span class="dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${p.color}"></span>${escapeHtml(p.name)}${p.bot ? ' 🤖' : ''}${p.id === msg.host ? ' (host)' : ''}</li>`).join('');
+    $('lobbyList').innerHTML = msg.players.map((p) => `<li><span class="dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${p.color}"></span>${escapeHtml(p.name)} <small style="opacity:.7">${escapeHtml(characterName(characterFor(p.id, p.char)))}</small>${p.bot ? ' 🤖' : ''}${p.id === msg.host ? ' (host)' : ''}</li>`).join('');
     const isHost = netSrc.myId === msg.host;
     $('btnStartNet').disabled = !isHost;
     $('btnStartNet').style.opacity = isHost ? 1 : 0.5;
@@ -4765,6 +5426,15 @@ $('btnConnect').onclick = () => {
   });
 };
 $('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet(), getMapNet(), +getTeamsNet()); };
+
+// character select: the menu buttons show the current pick and open the select screen
+function showCharPick() { $('btnChar').textContent = characterName(getCharacter()) + ' ▸'; }
+showCharPick();
+function pickCharacter() {
+  openCharacterSelect({ onPick: (id) => { showCharPick(); if (netSrc && !playing) netSrc.setChar(id); } });
+}
+$('btnCharPick').onclick = pickCharacter;
+$('btnCharNet').onclick = pickCharacter;
 
 function togglePause() {
   if (!playing) return;

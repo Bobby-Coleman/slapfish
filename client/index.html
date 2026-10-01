@@ -126,6 +126,7 @@
   .seg button.on { background: var(--ink); color: var(--paper); }
   .seg.wrap { flex-wrap: wrap; }
   input[type=text] { font: inherit; padding: 6px 10px; border-radius: 10px; border: 2px solid #10223a33; color: var(--ink); background: #fff; flex: 1; min-width: 120px; }
+  .charbtn { border: 0; background: var(--ink); color: var(--paper); font: inherit; font-weight: 800; font-size: 16px; padding: 4px 14px; border-radius: 10px; cursor: pointer; }
   .big { display: block; width: 100%; border: 0; border-radius: 16px; padding: 12px; font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; margin-top: 12px; box-shadow: 0 5px 0 #10223a55; }
   .big:active { transform: translateY(3px); box-shadow: 0 2px 0 #10223a55; }
   .play { background: var(--coral); color: #fff; }
@@ -333,6 +334,7 @@
       <div class="mcol">
         <button class="chunk play" id="btnSolo"><span>▶</span> PLAY <small>vs bots</small></button>
         <button class="chunk alt" id="btnOnline"><span>🌊</span> ONLINE <small>with friends</small></button>
+        <button class="chunk ghostb" id="btnCharPick"><span>🎣</span> CHARACTER <small id="btnChar">Skipper ▸</small></button>
         <button class="chunk ghostb" id="btnGuide"><span>📖</span> FISH GUIDE</button>
       </div>
       <div class="mpanel">
@@ -371,6 +373,7 @@
     <button class="big play" id="btnConnect">Join room</button>
     <div id="lobby" class="hidden">
       <ul id="lobbyList"></ul>
+      <div class="row"><label>Character</label><button class="charbtn" id="btnCharNet">Change character ▸</button></div>
       <div class="row"><label>Map</label><div class="seg" id="segMapNet"><button data-v="harbor" class="on">Harbor Box</button><button data-v="plus">Plus Pier</button></div></div>
       <div class="row"><label>Round</label><div class="seg wrap" id="segRoundNet"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="team">Team KOs</button><button data-v="koth">Hill</button><button data-v="ctf">Flag</button></div></div>
       <div class="row hidden" id="rowTeamsNet"><label>Teams</label><div class="seg" id="segTeamsNet"><button data-v="2" class="on">2 teams</button><button data-v="3">3 teams</button></div></div>

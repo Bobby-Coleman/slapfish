@@ -705,12 +705,14 @@
       }
     }
 
-    g.addPlayer = function (id, name, isBot, difficulty) {
+    // char is a cosmetic character id (see client/characters.js); the sim only stores and forwards it.
+    const cleanChar = (c) => (typeof c === 'string' && /^[a-z0-9_]{1,16}$/.test(c) ? c : null);
+    g.addPlayer = function (id, name, isBot, difficulty, char) {
       useWorld(g.world);
       const used = new Set(Object.values(S.players).map((p) => p.color));
       const color = COLORS.find((c) => !used.has(c)) || COLORS[Math.floor(Math.random() * COLORS.length)];
       const p = {
-        id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal',
+        id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal', char: cleanChar(char),
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
         hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, dotBy: null, lastW: null, lastHitW: null,
@@ -729,6 +731,7 @@
       syncRack();
       return p;
     };
+    g.setChar = function (id, char) { if (S.players[id]) S.players[id].char = cleanChar(char); };
     g.removePlayer = function (id) {
       delete S.players[id];
       delete g.inputs[id];
@@ -1831,7 +1834,7 @@
         bases: S.teams ? teamBases() : null,
         mode: S.mode, round: S.round, roundT: r2(S.roundT), breakT: r2(S.breakT), roundWinner: S.roundWinner, winRounds: C.winRounds, roundCap: C.roundCap,
         players: Object.values(S.players).map((p) => ({
-          id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
+          id: p.id, name: p.name, color: p.color, char: p.char, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
           hp: Math.max(0, Math.round(p.hp)), armor: Math.round(p.armor), alive: p.alive, out: p.respawnT === Infinity, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: p.respawnT === Infinity ? -1 : r2(p.respawnT), dashN: p.dashN, dashRT: r2(p.dashRT), dashIF: r2(p.dashIF), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), freezeT: r2(p.freezeT), splatT: r2(p.splatT), blindT: r2(p.blindT), phaseT: r2(p.phaseT), dotT: r2(p.dotT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,

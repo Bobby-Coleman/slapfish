@@ -1,5 +1,7 @@
 // Slap Fish - browser client: rendering, input, HUD, and either a local sim (vs bots) or an online connection.
 import * as THREE from 'three';
+import { buildCharacter, characterFor } from './characters.js';
+import { openCharacterSelect, getCharacter, characterName } from './charselect.js';
 
 const Sim = window.SlapSim;
 const { WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, GADGETS, MAPS, CFG } = Sim;
@@ -718,31 +720,12 @@ function makeFish(id) {
 const SKIN = '#ffd7b0';
 function darken(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); }
 
-function makePlayer(color) {
+function makePlayer(color, char) {
   const root = new THREE.Group();
-  const bodyG = new THREE.Group();
-  root.add(bodyG);
-  const body = mesh(new THREE.CapsuleGeometry(0.42, 0.45, 4, 10), color);
-  body.position.y = 0.78;
-  const vest = mesh(new THREE.CapsuleGeometry(0.44, 0.2, 4, 10), '#ffd23f');
-  vest.position.y = 0.72;
-  vest.scale.set(1, 0.9, 1);
-  const head = mesh(new THREE.SphereGeometry(0.34, 12, 10), SKIN);
-  head.position.y = 1.5;
-  const hatTop = mesh(new THREE.CylinderGeometry(0.26, 0.32, 0.25, 10), darken(color, 0.8));
-  hatTop.position.y = 1.78;
-  const brim = mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 12), darken(color, 0.8));
-  brim.position.y = 1.68;
-  const eyeL = mesh(lowSphere, '#10223a'); eyeL.scale.setScalar(0.055); eyeL.position.set(0.12, 1.53, 0.3);
-  const eyeR = eyeL.clone(); eyeR.position.x = -0.12;
-  const nose = mesh(lowSphere, '#ffb48a'); nose.scale.setScalar(0.07); nose.position.set(0, 1.45, 0.34);
-  const footL = mesh(new THREE.BoxGeometry(0.2, 0.15, 0.32), '#3b3b4f'); footL.position.set(0.17, 0.08, 0.03);
-  const footR = footL.clone(); footR.position.x = -0.17;
-  const armL = mesh(lowSphere, color); armL.scale.set(0.12, 0.12, 0.12); armL.position.set(0.48, 0.9, 0.1);
-  const hand = new THREE.Group(); hand.position.set(-0.45, 0.95, 0.35);
-  const armR = mesh(lowSphere, SKIN); armR.scale.setScalar(0.12); hand.add(armR);
-  bodyG.add(body, vest, head, hatTop, brim, eyeL, eyeR, nose, armL, hand);
-  root.add(footL, footR);
+  // the character supplies the body, feet and fish hand; everything below is shared gameplay dressing
+  const ch = buildCharacter(char, color);
+  const { bodyG, hand, footL, footR } = ch;
+  root.add(bodyG, footL, footR);
   // ring on the ground in the player's color
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.78, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }));
   ring.rotation.x = -Math.PI / 2;
@@ -766,7 +749,7 @@ function makePlayer(color) {
   armorShell.rotation.x = -1.2;
   armorShell.visible = false;
   bodyG.add(armorShell);
-  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, ring, fishId: null, fishMesh: null, walk: 0 };
+  root.userData = { bodyG, hand, rod, footL, footR, arrow, bubble, armorShell, ring, tick: ch.tick, fishId: null, fishMesh: null, walk: 0 };
   return root;
 }
 
@@ -1158,7 +1141,7 @@ function localSource(opts) {
   const r = opts.round, team = !!Sim.TEAM_MODES[r];
   const g = Sim.createGame({ map: opts.map, teams: opts.teams, mode: team ? r : r === 'rounds' ? 'rounds' : 'timed', roundSeconds: team || r === 'rounds' ? undefined : +r });
   buildMap(g.world);
-  g.addPlayer('me', opts.name, false);
+  g.addPlayer('me', opts.name, false, undefined, opts.char);
   const names = ['Captain Cod', 'Salty Sue', 'Barnacle Bo', 'Gill Bates', 'Reel Steel', 'Kelp Kelly', 'Mack Rell'];
   for (let i = 0; i < opts.bots; i++) g.addPlayer('bot' + i, names[i % names.length], true, opts.difficulty);
   g.start();
@@ -1186,7 +1169,7 @@ function localSource(opts) {
   return src;
 }
 
-function netSource(url, room, name, onLobby, onClose) {
+function netSource(url, room, name, char, onLobby, onClose) {
   const ws = new WebSocket(url);
   let lastSnapAt = 0, interval = 50, sendAcc = 0, seq = 0;
   const hist = []; // inputs the server hasn't acknowledged yet, replayed for prediction
@@ -1226,11 +1209,12 @@ function netSource(url, room, name, onLobby, onClose) {
         pending.dash = pending.fish = pending.use = pending.gadget = false;
       }
     },
+    setChar(c) { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'char', char: c })); },
     start(round, bots, map, teams) { ws.send(JSON.stringify({ t: 'start', round, bots, map, teams })); },
     restart() { ws.send(JSON.stringify({ t: 'start' })); },
     stop() { try { ws.close(); } catch (e) {} },
   };
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', room, name }));
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', room, name, char }));
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.t === 'welcome') src.myId = msg.id;
@@ -1295,7 +1279,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
     let v = views.players.get(p.id);
     if (v && v.color !== p.color) { scene.remove(v.obj, v.line, v.bobber); if (v.ice) scene.remove(v.ice); v.tag.remove(); views.players.delete(p.id); v = null; }
     if (!v) {
-      const obj = makePlayer(p.color);
+      const char = characterFor(p.id, p.char);
+      const obj = makePlayer(p.color, char);
       scene.add(obj);
       const tag = document.createElement('div');
       tag.className = 'tag';
@@ -1312,10 +1297,11 @@ function syncPlayers(s, prev, alpha, t, dt) {
       tierRing.rotation.x = -Math.PI / 2;
       bobber.add(tierRing);
       scene.add(bobber);
-      v = { obj, tag, line, bobber, tierRing, x: p.x, z: p.z, y: 0, rippleT: 0, color: p.color };
+      v = { obj, tag, line, bobber, tierRing, char, x: p.x, z: p.z, y: 0, rippleT: 0, color: p.color };
       views.players.set(p.id, v);
     }
     const o = v.obj, u = o.userData;
+    if (u.tick) u.tick(t);
     let pos = interp(prev && prev.players, p, alpha);
     if (p.id === source.myId && source.pred) {
       source.off.x *= Math.exp(-dt * 10); source.off.z *= Math.exp(-dt * 10);
@@ -2244,7 +2230,7 @@ $('btnSolo').onclick = () => {
   // team games fill the teams with bots: 2v2, 3v3, or three teams of two
   const team = !!Sim.TEAM_MODES[getRound()], fmt = getTeams();
   const teams = team ? +fmt[0] : 0, size = team ? +fmt[2] : 0;
-  beginPlay(localSource({ name: $('name').value || 'You', bots: team ? teams * size - 1 : +getBots(), teams, difficulty: getDiff(), round: getRound(), map: getMap() }));
+  beginPlay(localSource({ name: $('name').value || 'You', char: getCharacter(), bots: team ? teams * size - 1 : +getBots(), teams, difficulty: getDiff(), round: getRound(), map: getMap() }));
 };
 $('btnOnline').onclick = () => {
   saveName();
@@ -2268,10 +2254,10 @@ $('btnConnect').onclick = () => {
   if (netSrc) netSrc.stop();
   clearViews();
   $('netStatus').textContent = 'Connecting…';
-  netSrc = netSource($('server').value.trim(), $('room').value.trim() || 'pier', $('name').value || 'Angler', (msg) => {
+  netSrc = netSource($('server').value.trim(), $('room').value.trim() || 'pier', $('name').value || 'Angler', getCharacter(), (msg) => {
     $('netStatus').textContent = 'Connected. Share the room name with friends.';
     $('lobby').classList.remove('hidden');
-    $('lobbyList').innerHTML = msg.players.map((p) => `<li><span class="dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${p.color}"></span>${escapeHtml(p.name)}${p.bot ? ' 🤖' : ''}${p.id === msg.host ? ' (host)' : ''}</li>`).join('');
+    $('lobbyList').innerHTML = msg.players.map((p) => `<li><span class="dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${p.color}"></span>${escapeHtml(p.name)} <small style="opacity:.7">${escapeHtml(characterName(characterFor(p.id, p.char)))}</small>${p.bot ? ' 🤖' : ''}${p.id === msg.host ? ' (host)' : ''}</li>`).join('');
     const isHost = netSrc.myId === msg.host;
     $('btnStartNet').disabled = !isHost;
     $('btnStartNet').style.opacity = isHost ? 1 : 0.5;
@@ -2283,6 +2269,15 @@ $('btnConnect').onclick = () => {
   });
 };
 $('btnStartNet').onclick = () => { if (netSrc) netSrc.start(getRoundNet(), +getBotsNet(), getMapNet(), +getTeamsNet()); };
+
+// character select: the menu buttons show the current pick and open the select screen
+function showCharPick() { $('btnChar').textContent = characterName(getCharacter()) + ' ▸'; }
+showCharPick();
+function pickCharacter() {
+  openCharacterSelect({ onPick: (id) => { showCharPick(); if (netSrc && !playing) netSrc.setChar(id); } });
+}
+$('btnCharPick').onclick = pickCharacter;
+$('btnCharNet').onclick = pickCharacter;
 
 function togglePause() {
   if (!playing) return;
