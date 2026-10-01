@@ -281,6 +281,13 @@ const FISH_LOOK = {
   eel: { special: 'eel', body: '#c8e04a' },
   shark: { body: '#7f8fa3', belly: '#f4f4f4', len: 1.3, girth: 0.34, dorsal: true },
   narwhal: { body: '#ffcc33', belly: '#fff1b0', len: 1.2, girth: 0.32, horn: 1.1 },
+  boomerang: { body: '#2e8b7a', belly: '#dfe9e3', len: 0.95, girth: 0.2, stripes: '#174a40', bend: true },
+  herring: { body: '#7f9cc2', belly: '#eef3f7', len: 0.9, girth: 0.22, fins: '#5b7aa3' },
+  icecod: { body: '#9fe8ff', belly: '#ffffff', len: 0.95, girth: 0.26, fins: '#d9f7ff', icy: true },
+  ghost: { body: '#d8d0ff', belly: '#ffffff', len: 0.95, girth: 0.12, wide: 2.6, ghost: true },
+  angler: { body: '#4a3b5c', belly: '#6b5a80', len: 0.8, girth: 0.4, lure: true, teeth: true },
+  mantis: { body: '#ff5a8a', belly: '#ffd23f', len: 0.9, girth: 0.2, stripes: '#3fd1ff', claws: true },
+  kraken: { special: 'kraken', body: '#8a2be2' },
 };
 const sphereGeo = new THREE.SphereGeometry(1, 10, 8);
 const lowSphere = new THREE.SphereGeometry(1, 7, 5);
@@ -322,6 +329,20 @@ function makeFish(id) {
     g.add(tail);
     return g;
   }
+  if (L.special === 'kraken') {
+    const head = mesh(sphereGeo, L.body);
+    head.scale.set(0.35, 0.42, 0.35); head.position.z = 0.2;
+    g.add(head);
+    for (let i = 0; i < 8; i++) {
+      const t = mesh(new THREE.CylinderGeometry(0.05, 0.015, 0.75, 4), '#b05cff');
+      const a = (i / 8) * Math.PI * 2;
+      t.rotation.x = Math.PI / 2 + Math.sin(a) * 0.3;
+      t.position.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, -0.3);
+      g.add(t);
+    }
+    eye(0.16, 0.12, 0.45, 0.07); eye(-0.16, 0.12, 0.45, 0.07);
+    return g;
+  }
   if (L.special === 'eel') {
     for (let i = 0; i < 6; i++) {
       const s = mesh(sphereGeo, i === 0 ? '#e8f56a' : L.body);
@@ -336,8 +357,9 @@ function makeFish(id) {
     return g;
   }
   const len = L.len, gi = L.girth;
-  const body = mesh(sphereGeo, L.body);
-  body.scale.set(gi * 0.8, gi, len / 2);
+  const body = mesh(sphereGeo, L.body, L.ghost ? { transparent: true, opacity: 0.75 } : L.icy ? { emissive: '#3fb8ff', emissiveIntensity: 0.25 } : undefined);
+  body.scale.set(gi * 0.8 * (L.wide || 1), gi, len / 2);
+  if (L.bend) body.rotation.y = 0.35;
   g.add(body);
   const belly = mesh(sphereGeo, L.belly);
   belly.scale.set(gi * 0.7, gi * 0.6, len / 2 * 0.85);
@@ -381,6 +403,23 @@ function makeFish(id) {
     const fin = mesh(new THREE.ConeGeometry(0.1, 0.3, 3), L.fins);
     fin.position.set(0, gi + 0.08, 0);
     g.add(fin);
+  }
+  if (L.lure) {
+    const stalk = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 4), '#2b2238');
+    stalk.position.set(0, gi + 0.15, len * 0.3); stalk.rotation.x = 0.7;
+    const bulb = mesh(lowSphere, '#fff6a0', { emissive: '#ffe066', emissiveIntensity: 1 });
+    bulb.scale.setScalar(0.09); bulb.position.set(0, gi + 0.33, len * 0.52);
+    g.add(stalk, bulb);
+  }
+  if (L.teeth) for (let i = 0; i < 4; i++) {
+    const tooth = mesh(new THREE.ConeGeometry(0.03, 0.1, 3), '#ffffff');
+    tooth.position.set(-0.12 + i * 0.08, -0.02, len / 2 - 0.02); tooth.rotation.x = Math.PI;
+    g.add(tooth);
+  }
+  if (L.claws) for (const sx of [1, -1]) {
+    const claw = mesh(new THREE.BoxGeometry(0.12, 0.12, 0.3), '#ff8fb0');
+    claw.position.set(sx * 0.16, 0, len / 2 + 0.1);
+    g.add(claw);
   }
   if (L.special === 'hammer') {
     const head = mesh(new THREE.BoxGeometry(0.95, 0.16, 0.26), L.body);
@@ -687,6 +726,20 @@ const SFX = {
     if (i >= 3) setTimeout(() => noise(0.4, 0.06, 7000), notes.length * 85);
   },
 };
+Object.assign(SFX, {
+  splat: () => { noise(0.25, 0.25, 700); tone(180, 0.2, 'sine', 0.08, 0.5); },
+  blind: () => { tone(900, 0.5, 'sine', 0.06, 0.2); setTimeout(() => tone(120, 0.4, 'square', 0.04, 0.6), 200); },
+  storm: () => { noise(1.2, 0.2, 400); tone(80, 1, 'sawtooth', 0.05, 0.6); },
+  boing: () => tone(300, 0.18, 'sine', 0.07, 2.4),
+  whoosh: () => noise(0.18, 0.08, 3000),
+  ice: () => { noise(0.3, 0.2, 6000); [1800, 2400, 2100].forEach((f, i) => setTimeout(() => tone(f, 0.08, 'triangle', 0.04), i * 50)); },
+  // slide whistle down, then a bonk and a squeak
+  killcam: (big) => {
+    tone(1400, 0.45, 'sine', 0.08, 0.25);
+    setTimeout(() => { noise(0.08, 0.3, 1500); tone(110, 0.12, 'square', 0.1, 0.6); }, 430);
+    if (big) setTimeout(() => { tone(900, 0.07, 'square', 0.05, 1.5); setTimeout(() => tone(1250, 0.09, 'square', 0.05, 1.3), 80); }, 650);
+  },
+});
 let lastBeat = 0;
 function heartbeat(hp) {
   const now = performance.now(), gap = 380 + hp * 18;
@@ -983,8 +1036,21 @@ function syncPlayers(s, prev, alpha, t, dt) {
       v.rippleT -= dt;
       if (v.rippleT <= 0) { v.rippleT = 0.6; ringFx(pos.x, pos.z, 1.6, '#ffffff', WATER_Y + 0.15); }
     }
-    // flashing when invulnerable
-    u.bodyG.visible = !(p.invulnT > 0 && Math.floor(t * 12) % 2 === 0);
+    // frozen solid in an ice block
+    if (p.freezeT > 0 && o.visible) {
+      if (!v.ice) {
+        v.ice = new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.1, 1.3), new THREE.MeshToonMaterial({ color: '#bdf4ff', transparent: true, opacity: 0.55, gradientMap: grad }));
+        scene.add(v.ice);
+      }
+      v.ice.visible = true;
+      v.ice.position.set(pos.x, pos.y + 1, pos.z);
+      v.ice.rotation.y = 0.3;
+    } else if (v.ice) v.ice.visible = false;
+    // ghost dash: see-through and stretched
+    u.bodyG.scale.z = p.phaseT > 0 ? 1.8 : 1;
+    if (p.phaseT > 0 && Math.random() < 0.6) burst(pos.x, 1, pos.z, '#d8d0ff', 1, 0.5, 0.25, 0.35, 0);
+    // flashing when invulnerable, flickering while phasing
+    u.bodyG.visible = !(p.invulnT > 0 && Math.floor(t * 12) % 2 === 0) && !(p.phaseT > 0 && Math.floor(t * 30) % 2 === 0);
     u.arrow.visible = p.id === source.myId && p.alive;
     u.bubble.visible = p.bubble > 0 && !!p.fishing;
     u.armorShell.visible = p.armor > 0;
@@ -1043,7 +1109,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
     // tag
     const head = new THREE.Vector3(pos.x, pos.y + 2.4, pos.z).project(camera);
     const inked = s.traps && s.traps.some((tr) => tr.kind === 'ink' && Math.hypot(tr.x - p.x, tr.z - p.z) < GADGETS.ink.radius);
-    const vis = o.visible && head.z < 1 && p.id !== source.myId && !inked;
+    const meNow = s.players.find((q) => q.id === source.myId);
+    const vis = o.visible && head.z < 1 && p.id !== source.myId && !inked && !(meNow && meNow.blindT > 0);
     v.tag.style.display = vis ? '' : 'none';
     if (vis) {
       v.tag.style.left = ((head.x + 1) / 2) * window.innerWidth + 'px';
@@ -1063,7 +1130,7 @@ function syncPlayers(s, prev, alpha, t, dt) {
     }
   }
   for (const [id, v] of views.players) {
-    if (!seen.has(id)) { scene.remove(v.obj, v.line, v.bobber); v.tag.remove(); views.players.delete(id); }
+    if (!seen.has(id)) { scene.remove(v.obj, v.line, v.bobber); if (v.ice) scene.remove(v.ice); v.tag.remove(); views.players.delete(id); }
   }
 }
 
@@ -1086,7 +1153,8 @@ function syncProjectiles(s, prev, alpha) {
     let v = views.projectiles.get(pr.id);
     if (!v) {
       let m;
-      if (GADGETS[pr.w]) { m = pr.w === 'grouper' ? mesh(lowSphere, '#2b2b2b') : makeGadget(pr.w === 'urchin' ? 'urchin' : 'ink'); if (pr.w === 'grouper') m.scale.setScalar(0.28); if (pr.w === 'ink') m.scale.setScalar(0.18); }
+      if (pr.w === 'boomerang' || pr.w === 'shark' || pr.w === 'icecod') { m = makeFish(pr.w); m.scale.setScalar(pr.w === 'shark' ? 0.9 : 0.8); m.userData.spin = pr.w === 'boomerang' || pr.w === 'icecod'; }
+      else if (GADGETS[pr.w]) { m = pr.w === 'grouper' ? mesh(lowSphere, '#2b2b2b') : makeGadget(pr.w === 'urchin' ? 'urchin' : 'ink'); if (pr.w === 'grouper') m.scale.setScalar(0.28); if (pr.w === 'ink') m.scale.setScalar(0.18); }
       else if (pr.w === 'shark' || pr.w === 'puffer' || pr.w === 'tuna') { m = makeFish(pr.w); m.scale.setScalar(pr.w === 'puffer' ? 1 : 0.8); }
       else if (pr.w === 'narwhal') { m = mesh(new THREE.ConeGeometry(0.12, 1.4, 6), '#ffcc33'); m.geometry.rotateX(Math.PI / 2); }
       else { const L = PROJ_LOOK[pr.w] || ['#fff', 0.2]; m = mesh(lowSphere, L[0]); m.scale.setScalar(L[1]); }
@@ -1096,7 +1164,8 @@ function syncProjectiles(s, prev, alpha) {
     }
     const pos = interp(prev && prev.projectiles, pr, alpha);
     v.m.position.set(pos.x, 0.9 + (pr.h || 0), pos.z);
-    if (pr.vx || pr.vz) v.m.rotation.y = Math.atan2(pr.vx, pr.vz);
+    if (v.m.userData.spin) v.m.rotation.y += 0.55;
+    else if (pr.vx || pr.vz) v.m.rotation.y = Math.atan2(pr.vx, pr.vz);
     else v.m.rotation.x += 0.3;
   }
   for (const [id, v] of views.projectiles) if (!seen.has(id)) { scene.remove(v.m); views.projectiles.delete(id); }
@@ -1436,7 +1505,7 @@ function handleEvents(s, me) {
         if (e.w === 'squid') burst(e.x + e.ax, 1, e.z + e.az, '#3b2a5a', 3, 2, 0.1, 0.3);
         break;
       }
-      case 'boom': boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
+      case 'boom': if (e.ice) { burst(e.x, 0.6, e.z, '#bdf4ff', 24, 7, 0.2, 0.8); ringFx(e.x, e.z, e.r, '#bdf4ff', 0.1); SFX.ice(); break; } boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
       case 'zap': zapFx(e.pts); SFX.zap(); break;
       case 'gadget':
         if (e.id === myId) {
@@ -1462,7 +1531,7 @@ function handleEvents(s, me) {
       case 'ko': {
         if (e.by) feed(e.cause === 'blast' ? `${nameOf(s, e.by)} launched ${nameOf(s, e.id)} off the map 💥` : `${nameOf(s, e.by)} filleted ${nameOf(s, e.id)} 🐟`);
         else feed(`${nameOf(s, e.id)} drifted out to sea`);
-        if (e.id === myId) toast(s.mode === 'rounds' ? 'YOU\'RE OUT<small>back next round</small>' : 'KNOCKED OUT', '#ff5a5f', 2);
+        if (e.id === myId) startKillcam(s, e);
         else if (e.by === myId) toast('KO! 🐟', '#ffd23f', 1.4);
         const p = s.players.find((q) => q.id === e.id);
         boomFx(e.x, e.z, 6);
@@ -1521,6 +1590,23 @@ function handleEvents(s, me) {
         if (e.id === myId) SFX.dash(e.water);
         break;
       }
+      case 'blind': {
+        const p = s.players.find((q) => q.id === e.id);
+        feed(`${nameOf(s, e.id)} turned the lights out 💡`);
+        if (e.id === myId) toast('LIGHTS OUT<small>everyone else is in the dark</small>', '#fff6a0', 1.5);
+        burst(e.x, 2.5, e.z, '#fff6a0', 30, 9, 0.2, 0.8, 0);
+        SFX.blind();
+        break;
+      }
+      case 'storm': {
+        feed(`${nameOf(s, e.id)} summoned the KRAKEN 🐙`);
+        toast(e.id === myId ? 'KRAKEN INK STORM<small>everyone else is drowning in ink</small>' : 'KRAKEN STORM!<small>ink is raining down</small>', '#c86bff', 2);
+        SFX.storm();
+        break;
+      }
+      case 'bounce': burst(e.x, 0.3, e.z, '#ffd23f', 6, 4, 0.12, 0.3); SFX.boing(); break;
+      case 'boomturn': SFX.whoosh(); break;
+      case 'catchback': if (e.id === myId) tone(1300, 0.06, 'triangle', 0.05); break;
       case 'dodge': { floatText(e.x, 2.3, e.z, 'DODGE', '#9fe8ff', { cls: 'small' }); if (e.id === myId) SFX.dodge(); break; }
       case 'noweapon': if (e.id === myId) { toast('<small>no slapping! catch a fish first</small>', '#fff', 1); SFX.nope(); } break;
       case 'round': toast(`ROUND ${e.n}<small>last fisher standing wins</small>`, '#ffd23f', 1.6); SFX.round(); break;
@@ -1563,6 +1649,77 @@ function updateCamera(me, dt, t) {
   sun.target.position.set(cam.target.x, 0, cam.target.z);
 }
 
+// ------------------------------------------------------------------ killcam
+// A 2-second comic replay: freeze, swing the camera onto whoever got you, slam a stamp naming the fish.
+const KILL_VERB = {
+  boomerang: 'BOOMERANGED', sardine: 'SARDINED', herring: 'CLUBBED', squid: 'INKED', icecod: 'FROZE & FLOPPED', puffer: 'POPPED',
+  eel: 'YANKED', ghost: 'SPOOKED', swordfish: 'SKEWERED', angler: 'LIGHTS OUT', tuna: 'TUNA\'D', mantis: 'PUNCHED INTO NEXT WEEK',
+  hammerhead: 'HAMMERED', shark: 'TORPEDOED', narwhal: 'RAILED', kraken: 'KRAKEN\'D',
+  flounder: 'STEPPED ON A FLOUNDER', urchin: 'SPIKED', jelly: 'JELLIED', grouper: 'GROUPED UP',
+};
+const FISH_ICON = {
+  boomerang: '🪃', sardine: '🐟', herring: '🐟', squid: '🦑', icecod: '🧊', puffer: '🐡', eel: '⚡', ghost: '👻', swordfish: '🗡️', angler: '💡',
+  tuna: '🐟', mantis: '🦐', hammerhead: '🔨', shark: '🦈', narwhal: '🦄', kraken: '🐙', flounder: '💥', urchin: '🟣', jelly: '🪼', grouper: '🐟',
+};
+let killcam = null;
+function startKillcam(s, e) {
+  const killer = e.by && s.players.find((q) => q.id === e.by);
+  const ringOut = e.cause === 'blast';
+  const wname = e.w ? (WEAPONS[e.w] ? WEAPONS[e.w].name : GADGETS[e.w] ? GADGETS[e.w].name : '') : '';
+  const verb = !killer ? 'LOST AT SEA' : ringOut ? 'YEETED' : KILL_VERB[e.w] || 'FILLETED';
+  const el = $('killcam');
+  el.innerHTML = `<div class="kc-flash"></div><div class="kc-lines"></div><div class="kc-bar top"></div><div class="kc-bar bot"></div>
+    <div class="kc-stamp">${verb}${ringOut && killer ? '<small>off the map</small>' : ''}</div>
+    ${killer ? `<div class="kc-card"><span class="kc-icon">${FISH_ICON[e.w] || '🐟'}</span><span><small>by</small> <b style="color:${killer.color}">${escapeHtml(killer.name)}</b><br><small>with a</small> <b>${escapeHtml(wname || 'fish')}</b></span></div>` : ''}`;
+  el.className = 'on';
+  killcam = { t: 0, dur: killer ? 2.3 : 1.4, by: killer ? killer.id : null, x: e.x, z: e.z };
+  SFX.killcam(!!killer);
+}
+function stepKillcam(s, me, dt) {
+  if (!killcam) return false;
+  killcam.t += dt;
+  if (killcam.t >= killcam.dur || (me && me.alive && killcam.t > 0.6)) {
+    killcam = null;
+    $('killcam').className = '';
+    return false;
+  }
+  const kv = killcam.by && views.players.get(killcam.by);
+  if (!kv) return false;
+  // swing in front of the killer, dolly toward their face, tilt for drama
+  const k = Math.min(1, killcam.t / 0.35), ease = 1 - Math.pow(1 - k, 3);
+  const kp = s.players.find((q) => q.id === killcam.by);
+  const fx = kp ? kp.ax : 0, fz = kp ? kp.az : 1;
+  const dist = 5.5 - ease * 2.2 - killcam.t * 0.3;
+  const want = new THREE.Vector3(kv.x + fx * dist + fz * 1.2, (kv.y || 0) + 1.6 + (1 - ease) * 2, kv.z + fz * dist - fx * 1.2);
+  camera.position.lerp(want, ease);
+  camera.lookAt(kv.x, (kv.y || 0) + 1.2, kv.z);
+  camera.rotateZ(Math.sin(killcam.t * 2) * 0.08 + 0.1);
+  return true;
+}
+
+// ink on the screen, the anglerfish blackout and the kraken storm
+let lastSplat = 0;
+function updateScreenFx(me) {
+  const splat = $('splat');
+  const st = me && me.alive ? me.splatT : 0;
+  if (st > lastSplat + 0.3) {
+    // a fresh splat: drop a few blobs that drip down
+    splat.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const b = document.createElement('i');
+      const size = 90 + Math.random() * 160;
+      b.style.cssText = `left:${10 + Math.random() * 70}%;top:${10 + Math.random() * 55}%;width:${size}px;height:${size * (0.8 + Math.random() * 0.4)}px;animation-delay:${i * 40}ms`;
+      splat.appendChild(b);
+    }
+    SFX.splat();
+  }
+  lastSplat = st;
+  splat.style.opacity = Math.min(1, st / 1.2);
+  const bl = me && me.alive ? me.blindT : 0;
+  $('blind').style.opacity = bl > 0 ? Math.min(1, bl / 0.4) * (bl < 0.5 ? bl / 0.5 : 1) : 0;
+  $('storm').style.opacity = me && me.alive && me.dotT > 0 ? Math.min(0.85, me.dotT) : 0;
+}
+
 // ------------------------------------------------------------------ loop
 let lastT = performance.now();
 let menuOrbit = 0;
@@ -1601,6 +1758,8 @@ function frame(now) {
       let follow = me && me.alive ? (mv ? { x: mv.x, z: mv.z, y: mv.y } : me) : null;
       if (!follow && me && me.out) { const alive = s.players.find((q) => q.alive); const av = alive && views.players.get(alive.id); if (av) follow = { x: av.x, z: av.z, y: av.y }; }
       updateCamera(follow, dt, t);
+      stepKillcam(s, me, dt);
+      updateScreenFx(me);
       if (s.phase === 'over' && !$('results').classList.contains('shown')) showResults(s);
       if (s.phase === 'play' && $('results').classList.contains('shown')) { $('results').classList.remove('shown'); $('results').classList.add('hidden'); }
     }
@@ -1624,6 +1783,23 @@ function seg(id) {
   });
   return () => el.querySelector('.on').dataset.v;
 }
+function renderGuide() {
+  const rows = [];
+  for (const r of RARITIES) {
+    const list = Object.keys(WEAPONS).filter((id) => WEAPONS[id].rarity === r);
+    if (!list.length) continue;
+    rows.push(`<div class="ghead" style="color:${r === 'common' ? '#7f8c99' : RARITY_COLORS[r]}">${r.toUpperCase()}${r === 'common' ? ' · half a second of fishing' : r === 'legendary' ? ' · the deep Abyss' : ''}</div>`);
+    for (const id of list) {
+      const w = WEAPONS[id];
+      rows.push(`<div class="gfish" style="border-color:${RARITY_COLORS[r]}"><span class="ic">${FISH_ICON[id] || '🐟'}</span><b>${w.name}</b><small>${w.desc} · ${w.uses} use${w.uses > 1 ? 's' : ''}</small></div>`);
+    }
+  }
+  rows.push('<div class="ghead">GADGETS · bycatch, used with Q</div>');
+  for (const id in GADGETS) rows.push(`<div class="gfish" style="border-color:${GADGET_COLOR[id]}"><span class="ic">${GADGET_ICON[id]}</span><b>${GADGETS[id].name}</b><small>${GADGETS[id].desc}</small></div>`);
+  $('guideList').innerHTML = rows.join('');
+}
+$('btnGuide').onclick = () => { renderGuide(); $('menu').classList.add('hidden'); $('guide').classList.remove('hidden'); };
+$('btnGuideBack').onclick = () => { $('guide').classList.add('hidden'); $('menu').classList.remove('hidden'); };
 const getBots = seg('segBots'), getDiff = seg('segDiff'), getRound = seg('segRound'), getRoundNet = seg('segRoundNet'), getBotsNet = seg('segBotsNet');
 try { const n = localStorage.getItem('slapfish.name'); if (n) $('name').value = n; } catch (e) {}
 function saveName() { try { localStorage.setItem('slapfish.name', $('name').value); } catch (e) {} }

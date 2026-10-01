@@ -181,6 +181,88 @@
     #fishing { width: 130px; right: 8px; }
     #gauge { height: 170px; }
   }
+  /* screen effects */
+  #splat, #blind, #storm, #killcam { position: absolute; inset: 0; pointer-events: none; }
+  #splat { opacity: 0; transition: opacity .2s; }
+  #splat i { position: absolute; border-radius: 48% 52% 45% 55% / 55% 45% 55% 45%; background: radial-gradient(circle at 35% 35%, #4b3a70, #1a1030 60%); box-shadow: 0 0 0 6px #1a103088; transform: translate(-50%, -50%) scale(0); animation: splatIn .18s cubic-bezier(.3,1.6,.6,1) forwards, drip 2.4s ease-in .3s forwards; }
+  @keyframes splatIn { to { transform: translate(-50%, -50%) scale(1); } }
+  @keyframes drip { to { transform: translate(-50%, -30%) scale(1, 1.35); } }
+  #blind { opacity: 0; background: radial-gradient(circle at 50% 62%, transparent 0, transparent 70px, #05030cf2 150px); transition: opacity .15s; }
+  #storm { opacity: 0; background: repeating-linear-gradient(105deg, #5b2a9a55 0 3px, transparent 3px 26px), radial-gradient(circle, transparent 30%, #2a0f4acc); animation: rain .35s linear infinite; }
+  @keyframes rain { from { background-position: 0 0, 0 0; } to { background-position: -40px 120px, 0 0; } }
+  #killcam { display: none; overflow: hidden; z-index: 4; }
+  #killcam.on { display: block; }
+  .kc-flash { position: absolute; inset: 0; background: #fff; animation: kcFlash .25s ease-out forwards; }
+  @keyframes kcFlash { from { opacity: .9; } to { opacity: 0; } }
+  .kc-lines { position: absolute; inset: -20%; background: repeating-conic-gradient(from 0deg at 50% 50%, #ffffff30 0 2deg, transparent 2deg 9deg); -webkit-mask: radial-gradient(circle, transparent 30%, #000 60%); mask: radial-gradient(circle, transparent 30%, #000 60%); animation: kcSpin 2.4s linear; }
+  @keyframes kcSpin { to { transform: rotate(25deg); } }
+  .kc-bar { position: absolute; left: 0; right: 0; height: 11vh; background: #10223a; }
+  .kc-bar.top { top: 0; transform: translateY(-100%); animation: kcBarT .22s .08s cubic-bezier(.2,1.4,.5,1) forwards; }
+  .kc-bar.bot { bottom: 0; transform: translateY(100%); animation: kcBarB .22s .08s cubic-bezier(.2,1.4,.5,1) forwards; }
+  @keyframes kcBarT { to { transform: none; } }
+  @keyframes kcBarB { to { transform: none; } }
+  .kc-stamp { position: absolute; left: 50%; top: 26%; font-weight: 900; font-size: clamp(34px, 9vw, 92px); line-height: .9; color: #ffd23f; text-align: center; -webkit-text-stroke: 3px #10223a; text-shadow: 6px 6px 0 #ff5a5f, 0 0 30px #10223a88; transform: translate(-50%, -50%) rotate(-8deg) scale(4); opacity: 0; animation: kcStamp .3s .12s cubic-bezier(.2,1.6,.4,1) forwards, kcWobble .5s .45s ease-in-out 3 alternate; white-space: nowrap; }
+  .kc-stamp small { display: block; font-size: .35em; color: #fff; text-shadow: 3px 3px 0 #ff5a5f; }
+  @keyframes kcStamp { to { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(1); } }
+  @keyframes kcWobble { from { transform: translate(-50%, -50%) rotate(-8deg) scale(1); } to { transform: translate(-50%, -50%) rotate(-5deg) scale(1.06); } }
+  .kc-card { position: absolute; left: 6%; bottom: calc(11vh + 18px); display: flex; align-items: center; gap: 12px; background: var(--paper); color: var(--ink); padding: 10px 18px 10px 12px; border-radius: 16px; font-size: 22px; line-height: 1.1; box-shadow: 6px 6px 0 #10223a; transform: translateX(-130%) rotate(-3deg); animation: kcCard .35s .35s cubic-bezier(.2,1.5,.5,1) forwards; }
+  .kc-card small { font-size: 14px; opacity: .7; }
+  .kc-icon { font-size: 46px; display: inline-block; animation: kcIcon .3s .7s ease-in-out infinite alternate; }
+  @keyframes kcCard { to { transform: rotate(-3deg); } }
+  @keyframes kcIcon { from { transform: rotate(-15deg) scale(1); } to { transform: rotate(15deg) scale(1.2); } }
+  /* main menu */
+  #menu { background: linear-gradient(180deg, #7fd6f000 0%, #7fd6f000 45%, #1fa3c9cc 100%); align-items: flex-start; }
+  .mwrap { width: 100%; max-width: 980px; margin: auto; display: flex; flex-direction: column; gap: 18px; position: relative; z-index: 1; }
+  .mhead { text-align: center; }
+  .biglogo { margin: 0; font-size: clamp(40px, 13vw, 132px); font-weight: 900; line-height: .9; display: inline-flex; flex-wrap: nowrap; white-space: nowrap; align-items: center; gap: .1em; filter: drop-shadow(0 8px 0 #10223a); }
+  .biglogo .w1, .biglogo .w2 { display: inline-flex; }
+  .biglogo b { display: inline-block; -webkit-text-stroke: .045em #10223a; animation: bob 1.6s ease-in-out infinite; }
+  .biglogo .w1 b { color: var(--coral); }
+  .biglogo .w2 b { color: var(--sun); }
+  .biglogo b:nth-child(2) { animation-delay: .1s; } .biglogo b:nth-child(3) { animation-delay: .2s; } .biglogo b:nth-child(4) { animation-delay: .3s; }
+  .biglogo .w2 b { animation-delay: .45s; } .biglogo .w2 b:nth-child(2) { animation-delay: .55s; } .biglogo .w2 b:nth-child(3) { animation-delay: .65s; } .biglogo .w2 b:nth-child(4) { animation-delay: .75s; }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-.08em) rotate(-3deg); } }
+  .slapper { display: inline-block; font-size: .7em; transform-origin: 80% 80%; animation: slap 1.6s cubic-bezier(.5,0,.2,1.4) infinite; }
+  @keyframes slap { 0%, 55% { transform: rotate(40deg) scaleX(-1); } 70% { transform: rotate(-35deg) scaleX(-1); } 100% { transform: rotate(40deg) scaleX(-1); } }
+  .tagline2 { font-size: clamp(16px, 2.6vw, 24px); font-weight: 800; color: #fff; text-shadow: 0 3px 0 #10223a; margin-top: 6px; }
+  .mgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+  .mcol { display: flex; flex-direction: column; gap: 14px; }
+  .chunk { border: 0; border-radius: 22px; padding: 16px 22px; font: inherit; font-size: clamp(26px, 4vw, 40px); font-weight: 900; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 14px; box-shadow: 0 8px 0 #10223a; color: #fff; -webkit-text-stroke: 1.5px #10223a; transition: transform .12s; }
+  .chunk small { font-size: .45em; -webkit-text-stroke: 0; opacity: .9; margin-left: auto; color: inherit; }
+  .chunk span { font-size: .8em; -webkit-text-stroke: 0; }
+  .chunk:hover { transform: translateY(-3px) rotate(-1deg) scale(1.02); }
+  .chunk:active { transform: translateY(5px); box-shadow: 0 3px 0 #10223a; }
+  .chunk.play { background: var(--coral); animation: nudge 2.4s ease-in-out infinite; }
+  .chunk.alt { background: #1fa3c9; }
+  .chunk.ghostb { background: var(--paper); color: var(--ink); -webkit-text-stroke: 0; font-size: clamp(20px, 3vw, 28px); }
+  @keyframes nudge { 0%, 88%, 100% { transform: none; } 92% { transform: rotate(-2deg) scale(1.04); } 96% { transform: rotate(2deg) scale(1.04); } }
+  .mpanel { background: var(--paper); color: var(--ink); border-radius: 22px; padding: 14px 18px; box-shadow: 0 8px 0 #10223a55; }
+  .mpanel .row label { min-width: 54px; }
+  .howto { margin-top: 10px; display: grid; gap: 4px; font-size: 15px; font-weight: 700; }
+  .howto b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--coral); color: #fff; font-size: 13px; margin-right: 6px; }
+  .howto .sub { font-weight: 600; opacity: .75; font-size: 13px; }
+  .howto kbd, .mpanel kbd { background: #10223a14; border-radius: 6px; padding: 0 6px; font: inherit; font-weight: 800; }
+  .swim { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .swim i { position: absolute; font-style: normal; font-size: 40px; bottom: 6%; left: -10%; animation: swim 14s linear infinite; filter: drop-shadow(0 4px 0 #10223a55); }
+  .swim i:nth-child(2) { bottom: 14%; animation-duration: 18s; animation-delay: -4s; font-size: 32px; }
+  .swim i:nth-child(3) { bottom: 3%; animation-duration: 22s; animation-delay: -9s; font-size: 56px; }
+  .swim i:nth-child(4) { bottom: 20%; animation-duration: 16s; animation-delay: -12s; font-size: 28px; }
+  .swim i:nth-child(5) { bottom: 9%; animation-duration: 20s; animation-delay: -2s; }
+  .swim i:nth-child(6) { bottom: 25%; animation-duration: 25s; animation-delay: -15s; font-size: 24px; }
+  @keyframes swim { 0% { transform: translateX(0) translateY(0) scaleX(-1); } 50% { transform: translateX(60vw) translateY(-14px) scaleX(-1); } 100% { transform: translateX(125vw) translateY(0) scaleX(-1); } }
+  .card.wide { max-width: 820px; }
+  #guideList { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 12px 0; max-height: 60vh; overflow-y: auto; }
+  .gfish { border-radius: 14px; padding: 8px 10px; background: #10223a0d; border-left: 6px solid; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 2px 8px; align-items: center; }
+  .gfish .ic { grid-row: span 2; font-size: 30px; text-align: center; }
+  .gfish b { font-size: 16px; }
+  .gfish small { font-size: 12px; opacity: .8; }
+  .gfish .r { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+  .ghead { grid-column: 1 / -1; font-weight: 800; margin-top: 6px; }
+  @media (max-width: 700px) {
+    .mgrid { grid-template-columns: minmax(0, 1fr); }
+    .chunk { padding: 12px 16px; }
+    .swim i { font-size: 28px; }
+  }
 </style>
 </head>
 <body>
@@ -192,6 +274,10 @@
   <div id="topbar"><div id="timer">10:00</div></div>
   <div id="feed"></div>
   <div id="toast"></div>
+  <div id="splat"></div>
+  <div id="blind"></div>
+  <div id="storm"></div>
+  <div id="killcam"></div>
   <div id="gadget" class="empty"><div id="gicon">·</div><div><div id="gname">No gadget</div><div id="gcharges"></div><div id="gdesc">Deep catches can bring up bycatch</div></div><kbd>Q</kbd></div>
   <div id="crosshair"></div>
   <div id="prompt" class="hidden"></div>
@@ -232,21 +318,41 @@
 </div>
 
 <div id="menu" class="screen">
-  <div class="card">
-    <h1 class="logo">SLAP<span>FISH</span></h1>
-    <div class="tagline">Grab a rod. Cast off the pier. Every fish is a weapon.</div>
-    <div class="row"><label>Your name</label><input id="name" type="text" maxlength="16" value="Bobby"></div>
-    <div class="row"><label>Bots</label><div class="seg" id="segBots"><button data-v="1" class="on">1</button><button data-v="2">2</button><button data-v="3">3</button></div></div>
-    <div class="row"><label>Bot skill</label><div class="seg" id="segDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
-    <div class="row"><label>Round</label><div class="seg" id="segRound"><button data-v="rounds" class="on">Rounds (first to 5)</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
-    <button class="big play" id="btnSolo">Play vs bots</button>
-    <button class="big alt" id="btnOnline">Play online with friends</button>
-    <div class="controls">
-      <b>WASD</b> move &nbsp; <b>Mouse</b> look and aim &nbsp; <b>Click</b> attack &nbsp; (on a phone: left stick moves, right stick looks, HIT attacks)<br>
-      <b>R</b> or <b>Right click</b> cast, then again to reel in<br>
-      <b>Space</b> dash (also bails out of fishing) &nbsp; <b>E</b> swap fish<br>
-      Every hit raises your damage %, and the higher it is the farther you fly. Land in the water and you can swim back. Fly past the ring of buoys and you're knocked out. Leave the line in longer for rarer fish; getting hit snaps it.
+  <div class="swim" aria-hidden="true"><i>🐟</i><i>🐡</i><i>🦈</i><i>🐠</i><i>🦑</i><i>🐟</i></div>
+  <div class="mwrap">
+    <div class="mhead">
+      <h1 class="biglogo" aria-label="Slap Fish"><span class="w1"><b>S</b><b>L</b><b>A</b><b>P</b></span><span class="slapper">🐟</span><span class="w2"><b>F</b><b>I</b><b>S</b><b>H</b></span></h1>
+      <div class="tagline2">Catch a fish. Hit people with it. Don't fall in.</div>
     </div>
+    <div class="mgrid">
+      <div class="mcol">
+        <button class="chunk play" id="btnSolo"><span>▶</span> PLAY <small>vs bots</small></button>
+        <button class="chunk alt" id="btnOnline"><span>🌊</span> ONLINE <small>with friends</small></button>
+        <button class="chunk ghostb" id="btnGuide"><span>📖</span> FISH GUIDE</button>
+      </div>
+      <div class="mpanel">
+        <div class="row"><label>Name</label><input id="name" type="text" maxlength="16" value="Bobby"></div>
+        <div class="row"><label>Mode</label><div class="seg" id="segRound"><button data-v="rounds" class="on">Rounds</button><button data-v="300">5 min</button><button data-v="600">10 min</button></div></div>
+        <div class="row"><label>Bots</label><div class="seg" id="segBots"><button data-v="1">1</button><button data-v="2" class="on">2</button><button data-v="3">3</button></div></div>
+        <div class="row"><label>Skill</label><div class="seg" id="segDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
+        <div class="howto">
+          <div><b>1</b> Grab a rod from the middle</div>
+          <div><b>2</b> Cast off any edge: <kbd>R</kbd></div>
+          <div><b>3</b> Whack people: <kbd>Click</kbd></div>
+          <div><b>4</b> Dash everywhere: <kbd>Space</kbd></div>
+          <div class="sub">Gadgets on <kbd>Q</kbd> · last fisher standing wins the round · first to 5</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="guide" class="screen hidden">
+  <div class="card wide">
+    <h1 class="logo" style="font-size:44px">FISH <span>GUIDE</span></h1>
+    <div class="note">Leave your line in longer for rarer fish. Every fish has 1 to 3 uses.</div>
+    <div id="guideList"></div>
+    <button class="big alt" id="btnGuideBack">Back</button>
   </div>
 </div>
 

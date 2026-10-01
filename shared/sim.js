@@ -84,16 +84,27 @@
 
   // Every fish is a weapon. Power budget (uses x damage, plus knockback and area) climbs with rarity.
   const WEAPONS = {
-    sardine: { name: 'Sardine Burst', rarity: 'common', kind: 'shot', dmg: 9, kb: 4, cd: 0.45, uses: 3, pellets: 4, spread: 0.13, speed: 34, life: 0.42, rad: 0.25, desc: 'Shotgun spray. Brutal up close.' },
-    mackerel: { name: 'Mackerel Club', rarity: 'common', kind: 'melee', dmg: 34, kb: 11, cd: 0.45, uses: 3, range: 2.4, arc: 0.3, desc: 'A wide, meaty swing.' },
-    squid: { name: 'Squid Ink Blaster', rarity: 'uncommon', kind: 'shot', dmg: 12, kb: 3, cd: 0.4, uses: 3, pellets: 3, spread: 0.2, speed: 24, life: 0.55, rad: 0.35, slow: 2, desc: 'Ink spray that slows.' },
-    puffer: { name: 'Pufferfish Grenade', rarity: 'uncommon', kind: 'lob', dmg: 45, kb: 15, cd: 0.7, uses: 2, maxRange: 13, aoe: 3.2, flight: 0.6, desc: 'Lobbed, pops on landing.' },
-    eel: { name: 'Electric Eel', rarity: 'uncommon', kind: 'zap', dmg: 28, kb: 8, cd: 0.5, uses: 3, range: 12, cone: 0.85, chain: 6, stun: 0.6, desc: 'Auto-aim zap that chains and stuns.' },
+    // common: decent, never ring anyone out on their own
+    boomerang: { name: 'Boomerang Mackerel', rarity: 'common', kind: 'boomerang', dmg: 28, kb: 6, cd: 0.5, uses: 3, speed: 24, reach: 12, rad: 0.55, desc: 'Throw it, it comes back. Hits going out and coming home.' },
+    sardine: { name: 'Sardine Burst', rarity: 'common', kind: 'shot', dmg: 9, kb: 2.5, cd: 0.45, uses: 3, pellets: 4, spread: 0.13, speed: 34, life: 0.42, rad: 0.25, desc: 'Shotgun spray. Brutal up close.' },
+    herring: { name: 'Herring Club', rarity: 'common', kind: 'melee', dmg: 32, kb: 7, cd: 0.45, uses: 3, range: 2.4, arc: 0.3, desc: 'A wide, meaty swing.' },
+    // uncommon: tricks
+    squid: { name: 'Squid Ink Blaster', rarity: 'uncommon', kind: 'shot', dmg: 12, kb: 2, cd: 0.4, uses: 3, pellets: 3, spread: 0.2, speed: 24, life: 0.55, rad: 0.35, slow: 1.5, splat: 2.5, desc: 'Ink spray. Splats their screen.' },
+    icecod: { name: 'Ice Cod', rarity: 'uncommon', kind: 'lob', dmg: 15, kb: 2, cd: 0.6, uses: 2, maxRange: 12, aoe: 3, flight: 0.55, freeze: 1.1, desc: 'Freezes everyone in the splash solid.' },
+    puffer: { name: 'Bouncy Puffer', rarity: 'uncommon', kind: 'lob', dmg: 42, kb: 8, cd: 0.7, uses: 2, maxRange: 11, aoe: 3, flight: 0.5, bounces: 2, desc: 'A grenade that bounces twice, then pops.' },
+    eel: { name: 'Grapple Eel', rarity: 'uncommon', kind: 'zap', dmg: 20, kb: -9, cd: 0.5, uses: 2, range: 11, cone: 0.85, chain: 0, stun: 0.6, desc: 'Lashes the nearest enemy and yanks them to you.' },
+    // rare: power moves
+    ghost: { name: 'Ghost Flounder', rarity: 'rare', kind: 'phase', dmg: 40, kb: 12, cd: 0.35, uses: 3, speed: 34, time: 0.26, desc: 'Phase-dash through walls and people. Hurts what you pass through.' },
     swordfish: { name: 'Swordfish', rarity: 'rare', kind: 'melee', dmg: 60, kb: 16, cd: 0.6, uses: 2, range: 3.3, arc: 0.5, lunge: 22, desc: 'Huge lunge. Crosses gaps.' },
-    tuna: { name: 'Tuna Cannon', rarity: 'rare', kind: 'shot', dmg: 50, kb: 24, cd: 0.8, uses: 2, speed: 28, life: 0.9, rad: 0.8, desc: 'A cannonball fish. Massive knockback.' },
+    angler: { name: 'Anglerfish', rarity: 'rare', kind: 'blind', dmg: 0, kb: 0, cd: 0.5, uses: 1, blind: 3.5, desc: 'Lights out for everyone but you.' },
+    tuna: { name: 'Tuna Cannon', rarity: 'rare', kind: 'shot', dmg: 50, kb: 22, cd: 0.8, uses: 2, speed: 28, life: 0.9, rad: 0.8, desc: 'A cannonball fish. Massive knockback.' },
+    // epic: ring-out machines
+    mantis: { name: 'Mantis Shrimp', rarity: 'epic', kind: 'melee', dmg: 55, kb: 34, cd: 0.5, uses: 1, range: 2.6, arc: 0.4, desc: 'One punch. Sends them into next week.' },
     hammerhead: { name: 'Hammerhead', rarity: 'epic', kind: 'slam', dmg: 70, kb: 26, cd: 0.9, uses: 2, aoe: 2.8, reach: 1.8, heavy: true, desc: 'Ground slam. Heavy.' },
-    shark: { name: 'Shark Rocket', rarity: 'legendary', kind: 'rocket', dmg: 100, kb: 30, cd: 1, uses: 1, speed: 22, life: 1.5, rad: 0.5, aoe: 3, desc: 'One shot, one kill.' },
-    narwhal: { name: 'Golden Narwhal', rarity: 'legendary', kind: 'pierce', dmg: 100, kb: 24, cd: 1, uses: 1, speed: 70, life: 0.55, rad: 0.35, desc: 'Piercing lance. One-shot kill.' },
+    // legendary: one-shots
+    shark: { name: 'Shark Torpedo', rarity: 'legendary', kind: 'rocket', dmg: 100, kb: 30, cd: 1, uses: 1, speed: 16, life: 2.4, rad: 0.5, aoe: 3, homing: 3.2, desc: 'A homing torpedo. One-shot kill.' },
+    narwhal: { name: 'Narwhal Railgun', rarity: 'legendary', kind: 'pierce', dmg: 100, kb: 24, cd: 1, uses: 1, speed: 80, life: 0.55, rad: 0.4, walls: true, desc: 'A lance through walls. One-shot kill.' },
+    kraken: { name: 'Kraken Ink Storm', rarity: 'legendary', kind: 'storm', dmg: 0, kb: 0, cd: 1, uses: 1, time: 4, dps: 10, desc: 'Ink rains on everyone else: slow, blind, hurting.' },
   };
   const BY_RARITY = {};
   for (const id in WEAPONS) {
@@ -104,12 +115,12 @@
   // Gadget fish: a second slot next to your main fish. Q (or the GADGET button) uses one charge.
   // You can use gadgets while fishing, so they double as protection for your cast.
   const GADGETS = {
-    flounder: { name: 'Flounder Mine', w: 22, charges: 2, desc: 'Lay it flat on the boards. Boom when someone steps on it.', dmg: 14, kb: 18, aoe: 2.2, arm: 1.0, life: 40, trigger: 1.3 },
+    flounder: { name: 'Flounder Mine', w: 22, charges: 2, desc: 'Lay it flat on the boards. Boom when someone steps on it.', dmg: 14, kb: 12, aoe: 2.2, arm: 1.0, life: 40, trigger: 1.3 },
     urchin: { name: 'Urchin Scatter', w: 20, charges: 2, desc: 'Throw a spray of spiky urchins that sting and slow.', dmg: 6, kb: 4, slow: 1.6, life: 20, spikes: 4, maxRange: 10, flight: 0.55, trigger: 0.8 },
-    jelly: { name: 'Jellyfish Trap', w: 18, charges: 2, desc: 'Drop a jelly. Whoever touches it gets zapped and bounced.', dmg: 5, kb: 13, stun: 0.9, life: 30, trigger: 1.1, uses: 2 },
+    jelly: { name: 'Jellyfish Trap', w: 18, charges: 2, desc: 'Drop a jelly. Whoever touches it gets zapped and bounced.', dmg: 5, kb: 9, stun: 0.9, life: 30, trigger: 1.1, uses: 2 },
     ink: { name: 'Octopus Ink Bomb', w: 16, charges: 1, desc: 'An ink cloud that hides and slows everyone inside.', radius: 3.8, life: 6, maxRange: 12, flight: 0.6 },
     clam: { name: 'Giant Clam Wall', w: 12, charges: 1, desc: 'A clam that blocks shots and bodies. Great cover while fishing.', r: 1.25, life: 10 },
-    grouper: { name: 'Grouper Turret', w: 12, charges: 1, desc: 'Plants a grouper that spits bombs at the nearest enemy.', life: 9, every: 1.4, range: 14, dmg: 10, kb: 12, aoe: 2.2, flight: 0.7 },
+    grouper: { name: 'Grouper Turret', w: 12, charges: 1, desc: 'Plants a grouper that spits bombs at the nearest enemy.', life: 9, every: 1.4, range: 14, dmg: 10, kb: 8, aoe: 2.2, flight: 0.7 },
   };
   // chance that a catch also brings up a gadget, by depth tier
   const BYCATCH = { shallow: 0.2, reef: 0.3, deep: 0.4, abyss: 0.55 };
@@ -292,7 +303,7 @@
         id, name: (name || 'Angler').slice(0, 16), color, bot: !!isBot, difficulty: difficulty || 'normal',
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
         hp: CFG.maxHp, armor: 0, alive: false, dashN: CFG.dashCharges, dashRT: 0, dashIF: 0, roundWins: 0, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
-        hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0,
+        hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, dotBy: null, lastW: null, lastHitW: null,
         fishing: null, bubble: 0, lure: 0, gadget: null,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
         brain: isBot ? { spot: null, target: 0, stuckT: 0, lastX: 0, lastZ: 0, think: 0, strafe: 1, aimErr: 0 } : null,
@@ -388,7 +399,7 @@
       }
       Object.assign(p, {
         x: best[0], z: best[1], y: 0, vx: 0, vz: 0, vy: 0, hp: C.maxHp, dashN: C.dashCharges, dashRT: 0, dashIF: 0, alive: true, air: false, swim: false, climbT: 0,
-        invulnT: C.spawnInvuln, kbT: 0, slowT: 0, stunT: 0, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
+        invulnT: C.spawnInvuln, kbT: 0, slowT: 0, stunT: 0, freezeT: 0, splatT: 0, blindT: 0, phaseT: 0, dotT: 0, lastHitW: null, fishing: null, dashT: 0, cd: 0, lastHitBy: null,
       });
       const l = len(-p.x, -p.z) || 1;
       p.ax = -p.x / l; p.az = -p.z / l;
@@ -416,7 +427,7 @@
       p.hasRod = false;
       p.fishing = null;
       p.armor = 0;
-      emit('ko', { id: p.id, by: credit ? credit.id : null, cause, x: p.x, z: p.z });
+      emit('ko', { id: p.id, by: credit ? credit.id : null, cause, w: credit ? p.lastHitW : null, x: p.x, z: p.z });
     }
 
     function hit(t, attacker, dmg, dirx, dirz, kb, extra) {
@@ -442,7 +453,10 @@
       const l = len(dirx, dirz) || 1;
       const dx = dirx / l, dz = dirz / l;
       if (t.climbT > 0) { t.climbT = 0; t.swim = true; t.y = C.waterY; }
-      if (t.swim) {
+      if (kb < 0) {
+        t.vx = dx * power * 1.6; t.vz = dz * power * 1.6;
+        t.kbT = Math.max(t.kbT, 0.3);
+      } else if (t.swim) {
         t.vx += dx * power * 0.6; t.vz += dz * power * 0.6;
         t.kbT = Math.max(t.kbT, 0.35);
       } else if (power > C.airThreshold) {
@@ -459,20 +473,22 @@
       }
       if (extra && extra.slow) t.slowT = Math.max(t.slowT, extra.slow);
       if (extra && extra.stun) t.stunT = Math.max(t.stunT, extra.stun);
-      if (attacker) { t.lastHitBy = attacker.id; t.lastHitT = S.time; }
+      if (extra && extra.freeze) { t.stunT = Math.max(t.stunT, extra.freeze); t.freezeT = Math.max(t.freezeT, extra.freeze); t.vx *= 0.2; t.vz *= 0.2; }
+      if (extra && extra.splat) t.splatT = Math.max(t.splatT, extra.splat);
+      if (attacker) { t.lastHitBy = attacker.id; t.lastHitT = S.time; t.lastHitW = (extra && extra.w) || attacker.lastW; }
       emit('hit', { id: t.id, by: attacker ? attacker.id : null, dmg: Math.round(dmg + absorbed), armor: absorbed > 0, x: t.x, z: t.z, y: t.y, hp: Math.max(0, Math.round(t.hp)) });
       if (t.hp <= 0) kill(t, 'hp');
       return true;
     }
 
-    function explode(owner, x, z, w) {
-      emit('boom', { x, z, r: w.aoe });
+    function explode(owner, x, z, w, wid) {
+      emit('boom', { x, z, r: w.aoe, ice: !!w.freeze });
       for (const t of Object.values(S.players)) {
         if (t === owner) continue;
         const d = len(t.x - x, t.z - z);
         if (d < w.aoe + C.playerRadius) {
           const f = 1 - 0.5 * clamp(d / w.aoe, 0, 1);
-          hit(t, owner, w.dmg * f, t.x - x + 0.001, t.z - z, w.kb * f);
+          hit(t, owner, w.dmg * f, t.x - x + 0.001, t.z - z, w.kb * f, { freeze: w.freeze, w: wid });
         }
       }
     }
@@ -487,7 +503,9 @@
       const w = WEAPONS[wid];
       p.cd = w.cd;
       p.swingT = 0.2;
+      p.lastW = wid;
       const ax = p.ax, az = p.az;
+      const X = { w: wid };
       emit('fire', { id: p.id, w: wid, x: p.x, z: p.z, ax, az });
       if (w.kind === 'melee' || w.kind === 'slam') {
         if (w.lunge) { p.dashT = 0.14; p.vx = ax * w.lunge; p.vz = az * w.lunge; }
@@ -495,10 +513,10 @@
           if (t === p || !t.alive || Math.abs(t.y - p.y) > 2) continue;
           if (w.kind === 'slam') {
             const cx = p.x + ax * w.reach, cz = p.z + az * w.reach;
-            if (len(t.x - cx, t.z - cz) < w.aoe + C.playerRadius) hit(t, p, w.dmg, t.x - p.x, t.z - p.z, w.kb);
+            if (len(t.x - cx, t.z - cz) < w.aoe + C.playerRadius) hit(t, p, w.dmg, t.x - p.x, t.z - p.z, w.kb, X);
           } else {
             const dx = t.x - p.x, dz = t.z - p.z, d = len(dx, dz);
-            if (d < w.range + C.playerRadius && (d < 0.6 || (dx * ax + dz * az) / d >= w.arc)) hit(t, p, w.dmg, dx, dz, w.kb);
+            if (d < w.range + C.playerRadius && (d < 0.6 || (dx * ax + dz * az) / d >= w.arc)) hit(t, p, w.dmg, dx, dz, w.kb, X);
           }
         }
         if (w.kind === 'slam') emit('boom', { x: p.x + ax * w.reach, z: p.z + az * w.reach, r: w.aoe, slam: true });
@@ -510,9 +528,22 @@
           const dx = ax * ca - az * sa, dz = ax * sa + az * ca;
           S.projectiles.push({ id: uid(), w: wid, owner: p.id, x: p.x + dx * 0.8, z: p.z + dz * 0.8, vx: dx * w.speed, vz: dz * w.speed, life: w.life, rad: w.rad, hitIds: [] });
         }
+      } else if (w.kind === 'boomerang') {
+        S.projectiles.push({ id: uid(), w: wid, owner: p.id, x: p.x + ax * 0.8, z: p.z + az * 0.8, vx: ax * w.speed, vz: az * w.speed, out: w.reach, back: false, life: 3, rad: w.rad, spin: true, hitIds: [] });
       } else if (w.kind === 'lob') {
         const dist = clamp(inp.aimDist || 8, 2, w.maxRange);
-        S.projectiles.push({ id: uid(), w: wid, owner: p.id, x: p.x, z: p.z, sx: p.x, sz: p.z, tx: p.x + ax * dist, tz: p.z + az * dist, flight: w.flight, life: w.flight, lob: true, rad: 0.4, hitIds: [] });
+        S.projectiles.push({ id: uid(), w: wid, owner: p.id, x: p.x, z: p.z, sx: p.x, sz: p.z, tx: p.x + ax * dist, tz: p.z + az * dist, flight: w.flight, life: w.flight, lob: true, rad: 0.4, bounces: w.bounces || 0, hitIds: [] });
+      } else if (w.kind === 'phase') {
+        // ghost dash: through walls and people, hurting everyone you pass through
+        p.phaseT = w.time; p.dashT = w.time; p.dashIF = w.time;
+        p.vx = ax * w.speed; p.vz = az * w.speed;
+        p.phaseHit = [];
+      } else if (w.kind === 'blind') {
+        for (const t of Object.values(S.players)) if (t !== p && t.alive) { t.blindT = w.blind; t.lastHitBy = p.id; t.lastHitT = S.time; t.lastHitW = wid; }
+        emit('blind', { id: p.id, x: p.x, z: p.z, t: w.blind });
+      } else if (w.kind === 'storm') {
+        for (const t of Object.values(S.players)) if (t !== p && t.alive) { t.dotT = w.time; t.dotBy = p.id; t.slowT = Math.max(t.slowT, w.time); t.splatT = Math.max(t.splatT, w.time); }
+        emit('storm', { id: p.id, t: w.time });
       } else if (w.kind === 'zap') {
         let first = null, bestD = 999;
         for (const t of Object.values(S.players)) {
@@ -523,6 +554,7 @@
         const chain = [];
         if (first) {
           chain.push(first);
+          if (w.chain) {
           let second = null; bestD = 999;
           for (const t of Object.values(S.players)) {
             if (t === p || t === first || !t.alive) continue;
@@ -530,10 +562,11 @@
             if (d < w.chain && d < bestD) { bestD = d; second = t; }
           }
           if (second) chain.push(second);
+          }
         }
         const pts = [{ x: p.x, z: p.z }];
         if (chain.length) {
-          for (const t of chain) { pts.push({ x: t.x, z: t.z }); hit(t, p, w.dmg, t.x - p.x, t.z - p.z, w.kb, { stun: w.stun }); }
+          for (const t of chain) { pts.push({ x: t.x, z: t.z }); hit(t, p, w.dmg, t.x - p.x, t.z - p.z, w.kb, { stun: w.stun, w: wid }); }
         } else {
           pts.push({ x: p.x + ax * w.range * 0.6, z: p.z + az * w.range * 0.6 });
         }
@@ -631,6 +664,25 @@
       } else p.dashRT = 0;
       p.slowT = Math.max(0, p.slowT - dt);
       p.stunT = Math.max(0, p.stunT - dt);
+      p.freezeT = Math.max(0, p.freezeT - dt);
+      p.splatT = Math.max(0, p.splatT - dt);
+      p.blindT = Math.max(0, p.blindT - dt);
+      if (p.dotT > 0) {
+        // kraken ink storm: a little damage every tick
+        p.dotT -= dt;
+        const by = S.players[p.dotBy];
+        p.hp -= WEAPONS.kraken.dps * dt;
+        if (by) { p.lastHitBy = by.id; p.lastHitT = S.time; p.lastHitW = 'kraken'; }
+        if (p.hp <= 0) { kill(p, 'hp'); return; }
+      }
+      if (p.phaseT > 0) {
+        p.phaseT -= dt;
+        for (const t of Object.values(S.players)) {
+          if (t === p || !t.alive || p.phaseHit.includes(t.id) || len(t.x - p.x, t.z - p.z) > 1.3) continue;
+          p.phaseHit.push(t.id);
+          hit(t, p, WEAPONS.ghost.dmg, t.x - p.x + p.vx * 0.05, t.z - p.z + p.vz * 0.05, WEAPONS.ghost.kb, { w: 'ghost' });
+        }
+      }
       p.kbT = Math.max(0, p.kbT - dt);
       p.dashT = Math.max(0, p.dashT - dt);
       p.swingT = Math.max(0, p.swingT - dt);
@@ -772,14 +824,14 @@
             for (const q of players) {
               if (!q.alive || q.id === t.owner) continue;
               const d = len(q.x - t.x, q.z - t.z);
-              if (d < gd.aoe + C.playerRadius) hit(q, owner, gd.dmg, q.x - t.x + 0.001, q.z - t.z, gd.kb);
+              if (d < gd.aoe + C.playerRadius) hit(q, owner, gd.dmg, q.x - t.x + 0.001, q.z - t.z, gd.kb, { w: 'flounder' });
             }
           }
         } else if (t.kind === 'spike') {
           const v = victims(GADGETS.urchin.trigger);
           if (v.length) {
             const gd = GADGETS.urchin;
-            hit(v[0], owner, gd.dmg, v[0].vx || 0.01, v[0].vz || 0.01, gd.kb, { slow: gd.slow });
+            hit(v[0], owner, gd.dmg, v[0].vx || 0.01, v[0].vz || 0.01, gd.kb, { slow: gd.slow, w: 'urchin' });
             emit('spike', { x: t.x, z: t.z });
             gone = true;
           }
@@ -787,7 +839,7 @@
           const v = victims(GADGETS.jelly.trigger);
           if (v.length) {
             const gd = GADGETS.jelly;
-            for (const q of v) hit(q, owner, gd.dmg, q.x - t.x + 0.001, q.z - t.z, gd.kb, { stun: gd.stun });
+            for (const q of v) hit(q, owner, gd.dmg, q.x - t.x + 0.001, q.z - t.z, gd.kb, { stun: gd.stun, w: 'jelly' });
             emit('zapjelly', { x: t.x, z: t.z });
             t.uses--; t.arm = 0.8;
             if (t.uses <= 0) gone = true;
@@ -830,7 +882,7 @@
         S.traps.push({ id: uid(), kind: 'ink', owner: pr.owner, x: pr.x, z: pr.z, life: gd.life });
         emit('inkcloud', { x: pr.x, z: pr.z, r: gd.radius });
       } else if (pr.w === 'grouper') {
-        explode(owner, pr.x, pr.z, gd);
+        explode(owner, pr.x, pr.z, gd, 'grouper');
       }
     }
 
@@ -945,8 +997,8 @@
         if (!onPlatform(nx, p.z, mm)) { nx = p.x; p.vx = 0; }
         if (!onPlatform(nx, nz, mm)) { nz = p.z; p.vz = 0; }
       }
-      // obstacles
-      for (const o of solidObstacles(S)) {
+      // obstacles (a ghost dash goes straight through)
+      if (!(p.phaseT > 0)) for (const o of solidObstacles(S)) {
         const dx = nx - o.x, dz = nz - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
         if (d < min && d > 0.0001) { nx = o.x + (dx / d) * min; nz = o.z + (dz / d) * min; }
       }
@@ -985,33 +1037,69 @@
           const k = 1 - Math.max(0, pr.life) / pr.flight;
           pr.x = pr.sx + (pr.tx - pr.sx) * k;
           pr.z = pr.sz + (pr.tz - pr.sz) * k;
-          pr.h = Math.sin(k * Math.PI) * 4;
+          pr.h = Math.sin(k * Math.PI) * (pr.hop || 4);
           if (pr.life <= 0) {
             if (!onPlatformPoint(pr.x, pr.z)) emit('splash', { x: pr.x, z: pr.z, small: true });
             else if (pr.gadget) landGadget(pr, owner);
-            else explode(owner, pr.x, pr.z, w);
+            else if (pr.bounces > 0) {
+              // bouncy puffer: hop on in the same direction, shorter each time
+              const dx = pr.tx - pr.sx, dz = pr.tz - pr.sz;
+              pr.sx = pr.x; pr.sz = pr.z; pr.tx = pr.x + dx * 0.55; pr.tz = pr.z + dz * 0.55;
+              pr.flight *= 0.7; pr.life = pr.flight; pr.hop = (pr.hop || 4) * 0.55; pr.bounces--;
+              emit('bounce', { x: pr.x, z: pr.z });
+              continue;
+            } else explode(owner, pr.x, pr.z, w, pr.w);
             S.projectiles.splice(i, 1);
           }
           continue;
         }
+        if (pr.spin) {
+          // boomerang: fly out, then home back to whoever threw it
+          if (!pr.back) {
+            pr.out -= len(pr.vx, pr.vz) * dt;
+            if (pr.out <= 0) { pr.back = true; pr.hitIds = []; emit('boomturn', { x: pr.x, z: pr.z }); }
+          } else if (owner && owner.alive) {
+            const dx = owner.x - pr.x, dz = owner.z - pr.z, d = len(dx, dz) || 1;
+            if (d < 1) { S.projectiles.splice(i, 1); emit('catchback', { id: owner.id }); continue; }
+            pr.vx += ((dx / d) * w.speed - pr.vx) * Math.min(1, dt * 6);
+            pr.vz += ((dz / d) * w.speed - pr.vz) * Math.min(1, dt * 6);
+          }
+        }
+        if (w.homing && pr.life < w.life - 0.25) {
+          // shark torpedo: turn toward the nearest target in front of it
+          let best = null, bd = 18;
+          for (const t of Object.values(S.players)) {
+            if (t.id === pr.owner || !t.alive) continue;
+            const dx = t.x - pr.x, dz = t.z - pr.z, d = len(dx, dz);
+            if (d < bd && (dx * pr.vx + dz * pr.vz) > 0) { bd = d; best = t; }
+          }
+          if (best) {
+            const sp = len(pr.vx, pr.vz) || 1, dx = best.x - pr.x, dz = best.z - pr.z, d = len(dx, dz) || 1;
+            const k = Math.min(1, w.homing * dt);
+            pr.vx += ((dx / d) * sp - pr.vx) * k; pr.vz += ((dz / d) * sp - pr.vz) * k;
+            const l = len(pr.vx, pr.vz) || 1; pr.vx = (pr.vx / l) * sp; pr.vz = (pr.vz / l) * sp;
+          }
+        }
         pr.x += pr.vx * dt; pr.z += pr.vz * dt;
         let dead = pr.life <= 0;
-        for (const o of solidObstacles(S)) {
-          if (len(pr.x - o.x, pr.z - o.z) < o.r + pr.rad) { dead = true; break; }
+        if (!pr.spin && !w.walls) {
+          for (const o of solidObstacles(S)) {
+            if (len(pr.x - o.x, pr.z - o.z) < o.r + pr.rad) { dead = true; break; }
+          }
         }
         if (!dead) {
           for (const t of Object.values(S.players)) {
             if (t.id === pr.owner || !t.alive || t.y > 2.2 || t.climbT > 0 || pr.hitIds.includes(t.id)) continue;
             if (len(t.x - pr.x, t.z - pr.z) < C.playerRadius + pr.rad) {
               if (w.kind === 'rocket') { dead = true; break; }
-              hit(t, owner, w.dmg, pr.vx, pr.vz, w.kb, { slow: w.slow });
+              hit(t, owner, w.dmg, pr.vx, pr.vz, w.kb, { slow: w.slow, splat: w.splat, w: pr.w });
               pr.hitIds.push(t.id);
-              if (w.kind !== 'pierce') { dead = true; break; }
+              if (w.kind !== 'pierce' && w.kind !== 'boomerang') { dead = true; break; }
             }
           }
         }
         if (dead) {
-          if (w.kind === 'rocket') explode(owner, pr.x, pr.z, w);
+          if (w.kind === 'rocket') explode(owner, pr.x, pr.z, w, pr.w);
           S.projectiles.splice(i, 1);
         }
       }
@@ -1102,13 +1190,13 @@
         players: Object.values(S.players).map((p) => ({
           id: p.id, name: p.name, color: p.color, bot: p.bot, x: r2(p.x), z: r2(p.z), y: r2(p.y), ax: r2(p.ax), az: r2(p.az),
           hp: Math.max(0, Math.round(p.hp)), armor: Math.round(p.armor), alive: p.alive, out: p.respawnT === Infinity, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: p.respawnT === Infinity ? -1 : r2(p.respawnT), dashN: p.dashN, dashRT: r2(p.dashRT), dashIF: r2(p.dashIF), invulnT: r2(p.invulnT),
-          hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
+          hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), freezeT: r2(p.freezeT), splatT: r2(p.splatT), blindT: r2(p.blindT), phaseT: r2(p.phaseT), dotT: r2(p.dotT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
           bubble: p.bubble, lure: p.lure, gadget: p.gadget, roundWins: p.roundWins, kos: p.kos, deaths: p.deaths, caught: p.caught,
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
         traps: S.traps.map((t) => ({ id: t.id, kind: t.kind, owner: t.owner, x: r2(t.x), z: r2(t.z), life: r2(t.life), armed: !(t.arm > 0), rot: t.rot ? r2(t.rot) : 0 })),
-        projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
+        projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, back: p.back || undefined, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
         items: S.items.map((i) => ({ id: i.id, kind: i.kind, weapon: i.weapon, x: r2(i.x), z: r2(i.z), y: r2(i.y || 0) })),
         pelicans: S.pelicans.map((p) => ({ id: p.id, x: r2(p.x), z: r2(p.z), dx: p.dx, dz: p.dz, tx: p.tx, tz: p.tz, kind: p.kind, dropped: p.dropped })),
         rack: S.rack.map((r) => r.ready),
@@ -1246,7 +1334,7 @@
     if (p.weapon && enemy) {
       const w = WEAPONS[p.weapon.id];
       const melee = w.kind === 'melee' || w.kind === 'slam';
-      const want = melee ? 1.6 : w.kind === 'lob' ? 7 : w.kind === 'zap' ? 7 : 8;
+      const want = melee ? 1.6 : w.kind === 'phase' ? 4 : w.kind === 'lob' ? 7 : w.kind === 'zap' ? 7 : w.kind === 'blind' || w.kind === 'storm' ? 10 : 8;
       // aim with some lead and a wandering error
       b.think -= dt;
       if (b.think <= 0) { b.think = skill.react; b.aimErr = rand(-skill.aimErr, skill.aimErr); b.strafe = Math.random() < 0.5 ? -1 : 1; }
@@ -1269,7 +1357,7 @@
         out.mx = out.mx * 0.4 + (hx / hl) * 0.9; out.mz = out.mz * 0.4 + (hz / hl) * 0.9;
         const l = len(out.mx, out.mz) || 1; out.mx /= l; out.mz /= l;
       }
-      const range = melee ? (w.range || w.reach + w.aoe) + 0.3 : w.kind === 'zap' ? w.range : w.kind === 'lob' ? w.maxRange : sp * (w.life || 1);
+      const range = melee ? (w.range || w.reach + w.aoe) + 0.3 : w.kind === 'zap' ? w.range : w.kind === 'lob' ? w.maxRange : w.kind === 'boomerang' ? w.reach : w.kind === 'phase' ? w.speed * w.time : w.kind === 'blind' || w.kind === 'storm' ? 16 : sp * (w.life || 1);
       if (ed < range && Math.random() < skill.fireRate) out.fire = true;
       if (melee && ed < 5 && ed > 2.2 && p.dashN > 0 && Math.random() < 0.03) out.dash = true;
       // sidestep incoming fire
