@@ -1,0 +1,14 @@
+{
+  "name": "slapfish",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slap Fish: a multiplayer pier brawler where every fish is a weapon.",
+  "scripts": {
+    "start": "node server/server.js",
+    "build": "node tools/build.js",
+    "sim": "node tools/simtest.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
