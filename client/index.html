@@ -27,7 +27,7 @@
   .hidden { display: none !important; }
   #tags { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
   .tag { position: absolute; transform: translate(-50%, -100%); text-align: center; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px #0008; white-space: nowrap; }
-  .tag .bar { width: 54px; height: 6px; background: #0006; border-radius: 3px; margin: 2px auto 0; overflow: hidden; position: relative; }
+  .tag .bar { display: none; width: 54px; height: 6px; background: #0006; border-radius: 3px; margin: 2px auto 0; overflow: hidden; position: relative; }
   .tag .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #5ee07a; }
   .tag .bar b { position: absolute; top: 0; bottom: 0; background: #9fd3ff; }
   .tag .fishing { font-size: 11px; padding: 0 6px; border-radius: 8px; margin-top: 2px; display: inline-block; color: #10223a; }
@@ -51,7 +51,13 @@
   .meter { height: 14px; background: #0007; border-radius: 7px; overflow: hidden; margin: 3px 0; position: relative; }
   .meter i { position: absolute; inset: 0 auto 0 0; transition: width .15s; }
   .meter span { position: absolute; inset: 0; font-size: 11px; line-height: 14px; text-align: center; font-weight: 700; }
-  #hpbar { background: linear-gradient(90deg, #ff5a5f, #5ee07a); }
+  #pct { font-weight: 800; font-size: 44px; line-height: 1; text-shadow: 0 3px 0 #10223a; font-variant-numeric: tabular-nums; }
+  #pctsub { font-size: 12px; opacity: .85; margin-bottom: 4px; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; pointer-events: none; }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 2px #10223a; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
+  .tag .pc { font-size: 15px; font-weight: 800; }
   #armorbar { background: #9fd3ff; }
   #buffs { display: flex; gap: 6px; margin-top: 4px; font-size: 13px; min-height: 18px; }
   #buffs span { background: #ffffff22; padding: 0 6px; border-radius: 8px; }
@@ -61,6 +67,13 @@
   #ammo { display: flex; gap: 3px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
   #ammo i { width: 8px; height: 12px; border-radius: 3px; background: var(--sun); }
   #ammo i.used { background: #ffffff30; }
+  #gadget { background: var(--hud-bg); border-radius: 14px; padding: 6px 10px; width: 210px; display: flex; gap: 8px; align-items: center; border: 3px solid transparent; }
+  #gadget.empty { opacity: .6; }
+  #gicon { font-size: 28px; width: 34px; text-align: center; }
+  #gname { font-weight: 800; font-size: 15px; line-height: 1.1; }
+  #gcharges { color: var(--sun); font-size: 12px; letter-spacing: 2px; min-height: 12px; }
+  #gdesc { font-size: 11px; opacity: .8; line-height: 1.2; }
+  #gadget kbd { margin-left: auto; background: #ffffff22; border-radius: 6px; padding: 0 6px; font: 800 13px inherit; }
   #help { background: var(--hud-bg); border-radius: 14px; padding: 6px 12px; font-size: 13px; line-height: 1.35; width: 220px; }
   #help b { color: var(--sun); }
   #prompt { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: var(--hud-bg); padding: 4px 14px; border-radius: 12px; font-weight: 700; font-size: 17px; }
@@ -109,26 +122,34 @@
   .stick i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: #fff8eccc; }
   #stickL { left: 20px; }
   #stickR { right: 20px; }
-  #stickR i { background: #ff5a5fdd; }
+  #stickR i { background: #9fe8ffdd; }
   .tbtn { position: absolute; right: 20px; width: 62px; height: 62px; border-radius: 50%; border: 3px solid #fff8ec88; background: #10223a99; color: #fff8ec; font: 800 13px 'Baloo 2', system-ui, sans-serif; pointer-events: auto; touch-action: none; }
   .tbtn:active { background: #ffd23f; color: #10223a; }
-  #tFish { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 96px; width: 74px; height: 74px; font-size: 15px; background: #1fa3c9cc; }
+  #tFire { bottom: calc(165px + env(safe-area-inset-bottom, 0px)); right: 96px; width: 84px; height: 84px; font-size: 18px; background: #ff5a5fcc; }
+  #tFish { bottom: calc(260px + env(safe-area-inset-bottom, 0px)); right: 18px; width: 70px; height: 70px; font-size: 14px; background: #1fa3c9cc; }
   #tDash { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 16px; }
-  #tSwap { bottom: calc(240px + env(safe-area-inset-bottom, 0px)); right: 30px; width: 50px; height: 50px; }
+  #tSwap { bottom: calc(268px + env(safe-area-inset-bottom, 0px)); right: 104px; width: 50px; height: 50px; }
+  #tGadget { bottom: calc(350px + env(safe-area-inset-bottom, 0px)); right: 22px; width: 62px; height: 62px; font-size: 11px; line-height: 1.1; background: #3ddc84cc; }
+  #tGadget.dim { opacity: .45; }
   #tPause { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--hud-bg); color: #fff; font-size: 18px; pointer-events: auto; }
-  body.touch #help, body.touch #minimap { display: none; }
-  body.touch #bottom { bottom: auto; top: 52px; left: 8px; right: 8px; gap: 6px; }
+  body.touch #help, body.touch #minimap, body.touch #gadget { display: none; }
+  body.touch #bottom { bottom: auto; top: 96px; left: 8px; right: 8px; gap: 6px; align-items: flex-start; }
   body.touch #vitals { width: 130px; padding: 6px 8px; }
   body.touch #weapon { padding: 4px 8px; min-width: 0; flex: 1; }
   body.touch #wname { font-size: 16px; }
   body.touch #wdesc { font-size: 11px; }
-  body.touch #prompt { bottom: auto; top: 140px; font-size: 14px; }
-  body.touch #fishing { top: 150px; transform: none; left: 8px; right: auto; width: 120px; padding: 6px; }
+  body.touch #crosshair { width: 16px; height: 16px; margin: -8px 0 0 -8px; }
+  body.touch #prompt { bottom: auto; top: 196px; font-size: 13px; max-width: calc(100vw - 32px); text-align: center; }
+  body.touch #pct { font-size: 26px; }
+  body.touch #pctsub { font-size: 10px; margin-bottom: 2px; }
+  body.touch #fishing { top: 220px; transform: none; left: 8px; right: auto; width: 120px; padding: 6px; }
   body.touch #gauge { height: 140px; }
-  body.touch #feed { top: 140px; }
+  body.touch #feed { top: 220px; }
   body.touch #toast { font-size: 26px; top: 30%; }
   @media (max-width: 700px) {
     #help, #minimap { display: none; }
+    #gadget { width: auto; }
+    #gdesc { display: none; }
     #vitals { width: 150px; }
     #weapon { min-width: 0; flex: 1; }
     .logo { font-size: 46px; }
@@ -146,6 +167,7 @@
   <div id="topbar"><div id="timer">10:00</div></div>
   <div id="feed"></div>
   <div id="toast"></div>
+  <div id="crosshair"></div>
   <div id="prompt" class="hidden"></div>
   <div id="fishing" class="hidden">
     <h3>Line in the water</h3>
@@ -156,17 +178,18 @@
   </div>
   <div id="bottom">
     <div id="vitals">
-      <div class="meter"><i id="hpbar"></i><span id="hptxt">100</span></div>
+      <div id="pct">0%</div><div id="pctsub">damage</div>
       <div class="meter"><i id="armorbar"></i><span id="armortxt">armor 0</span></div>
       <div id="buffs"></div>
     </div>
     <div id="weapon"><div id="wname">Slap</div><div id="wdesc">Grab a rod from the center</div><div id="ammo"></div></div>
+    <div id="gadget" class="empty"><div id="gicon">·</div><div><div id="gname">No gadget</div><div id="gcharges"></div><div id="gdesc">Deep catches can bring up bycatch</div></div><kbd>Q</kbd></div>
     <div id="help">
-      <b>WASD</b> move · <b>Mouse</b> aim<br>
+      <b>WASD</b> move · <b>Mouse</b> look & aim<br>
       <b>Click</b> attack · <b>Space</b> dash<br>
       <b>R</b>/<b>Right click</b> cast & reel<br>
-      <b>E</b> swap for a fish on the ground<br>
-      <b>Esc</b> pause · <b>M</b> sound
+      <b>E</b> swap fish · <b>Q</b> use gadget<br>
+      <b>Arrows</b> turn camera · <b>Esc</b> pause · <b>M</b> sound
     </div>
   </div>
 </div>
@@ -174,9 +197,11 @@
 <div id="touch" class="hidden">
   <div class="stick" id="stickL"><i></i></div>
   <div class="stick" id="stickR"><i></i></div>
+  <button class="tbtn" id="tFire">HIT</button>
   <button class="tbtn" id="tFish">CAST</button>
   <button class="tbtn" id="tDash">DASH</button>
   <button class="tbtn" id="tSwap">SWAP</button>
+  <button class="tbtn" id="tGadget">GADGET</button>
   <button id="tPause" aria-label="Pause">II</button>
 </div>
 
@@ -191,10 +216,10 @@
     <button class="big play" id="btnSolo">Play vs bots</button>
     <button class="big alt" id="btnOnline">Play online with friends</button>
     <div class="controls">
-      <b>WASD</b> move &nbsp; <b>Mouse</b> aim &nbsp; <b>Click</b> attack &nbsp; (on a phone: left stick moves, right stick aims and fires)<br>
+      <b>WASD</b> move &nbsp; <b>Mouse</b> look and aim &nbsp; <b>Click</b> attack &nbsp; (on a phone: left stick moves, right stick looks, HIT attacks)<br>
       <b>R</b> or <b>Right click</b> cast, then again to reel in<br>
       <b>Space</b> dash (also bails out of fishing) &nbsp; <b>E</b> swap fish<br>
-      Leave the line in longer for rarer fish. Pier tips are deep water: faster depth, but nowhere to run. Getting hit snaps your line.
+      Every hit raises your damage %, and the higher it is the farther you fly. Land in the water and you can swim back. Fly past the ring of buoys and you're knocked out. Leave the line in longer for rarer fish; getting hit snaps it.
     </div>
   </div>
 </div>

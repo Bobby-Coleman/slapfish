@@ -35,6 +35,7 @@ To test how online play feels with lag, run `LAG_MS=60 npm start` (adds 60 ms ea
 | R or right click | Cast, then reel in |
 | Space | Dash (also bails out of fishing) |
 | E | Swap your fish for one on the ground |
+| Q | Use your gadget fish (flounder mine, urchins, jelly, ink, clam, grouper) |
 | Esc | Pause (solo) |
 | M | Mute |
 
@@ -48,3 +49,4 @@ To test how online play feels with lag, run `LAG_MS=60 npm start` (adds 60 ms ea
 | `tools/build.js` | `npm run build`: inlines everything into `dist/slapfish.html`. |
 | `tools/simtest.js` | `npm run sim`: headless bot-vs-bot rounds that print balance stats. |
 | `docs/DESIGN.md` | Game design and balance tables. |
+| `docs/GAME_PROMPT.md` | The whole game restated as one brief, with open questions. |
