@@ -41,7 +41,7 @@ function rawSend(ws, data) { if (LAG_MS) setTimeout(() => ws.readyState === 1 &&
 function send(ws, msg) { rawSend(ws, JSON.stringify(msg)); }
 function lobby(r) {
   const s = r.game.state;
-  const msg = { t: 'lobby', host: r.host, phase: s.phase, players: Object.values(s.players).map((p) => ({ id: p.id, name: p.name, color: p.color, bot: p.bot })) };
+  const msg = { t: 'lobby', host: r.host, phase: s.phase, players: Object.values(s.players).map((p) => ({ id: p.id, name: p.name, color: p.color, char: p.char, bot: p.bot })) };
   for (const ws of r.clients.values()) send(ws, msg);
 }
 
@@ -59,13 +59,16 @@ wss.on('connection', (ws) => {
       if (humans >= MAX_PLAYERS) { send(ws, { t: 'full' }); ws.close(); return; }
       id = 'p' + nextId++;
       room.clients.set(id, ws);
-      room.game.addPlayer(id, String(msg.name || 'Angler'), false);
+      room.game.addPlayer(id, String(msg.name || 'Angler'), false, undefined, msg.char);
       if (!room.host || !room.clients.has(room.host)) room.host = id;
       send(ws, { t: 'welcome', id, room: room.name });
       lobby(room);
       console.log(`[${room.name}] ${msg.name} joined (${room.clients.size} connected)`);
     } else if (!room) {
       return;
+    } else if (msg.t === 'char') {
+      room.game.setChar(id, msg.char);
+      lobby(room);
     } else if (msg.t === 'input') {
       room.game.setInput(id, msg.i || {});
     } else if (msg.t === 'start' && id === room.host) {
