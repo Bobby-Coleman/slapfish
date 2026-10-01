@@ -613,7 +613,54 @@ const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const aimPoint = new THREE.Vector3();
 
+// touch: left stick moves, right stick aims and fires when pushed past the dead zone
+const touchState = { on: false, mx: 0, mz: 0, ax: 0, az: 0, aiming: false, mag: 0 };
+function setupStick(el, onMove) {
+  const knob = el.querySelector('i');
+  let pid = null;
+  const update = (e) => {
+    const r = el.getBoundingClientRect();
+    let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const max = r.width / 2;
+    const d = Math.hypot(dx, dy);
+    if (d > max) { dx *= max / d; dy *= max / d; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    onMove(dx / max, dy / max, true);
+  };
+  el.addEventListener('pointerdown', (e) => { pid = e.pointerId; try { el.setPointerCapture(pid); } catch (err) {} ac(); update(e); e.preventDefault(); });
+  el.addEventListener('pointermove', (e) => { if (e.pointerId === pid) update(e); });
+  const end = (e) => { if (e.pointerId !== pid) return; pid = null; knob.style.transform = ''; onMove(0, 0, false); };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+function enableTouch() {
+  if (touchState.on) return;
+  touchState.on = true;
+  document.body.classList.add('touch');
+}
+window.addEventListener('touchstart', enableTouch, { passive: true, once: true });
+if (matchMedia('(pointer: coarse)').matches) enableTouch();
+setupStick(document.getElementById('stickL'), (x, y) => { touchState.mx = x; touchState.mz = y; });
+setupStick(document.getElementById('stickR'), (x, y, active) => {
+  const m = Math.hypot(x, y);
+  touchState.mag = m;
+  if (m > 0.2) { touchState.ax = x / m; touchState.az = y / m; }
+  touchState.aiming = active && m > 0.35;
+});
+const tap = (id, fn) => document.getElementById(id).addEventListener('pointerdown', (e) => { e.preventDefault(); ac(); fn(); });
+tap('tFish', () => (input.fish = true));
+tap('tDash', () => (input.dash = true));
+tap('tSwap', () => (input.use = true));
+tap('tPause', () => togglePause());
+
 function readInput(me) {
+  if (touchState.on && !mouseDown && !keys['w'] && !keys['a'] && !keys['s'] && !keys['d']) {
+    input.mx = Math.abs(touchState.mx) > 0.15 ? touchState.mx : 0;
+    input.mz = Math.abs(touchState.mz) > 0.15 ? touchState.mz : 0;
+    if (touchState.ax || touchState.az) { input.ax = touchState.ax; input.az = touchState.az; input.aimDist = 3 + touchState.mag * 10; }
+    input.fire = touchState.aiming;
+    return;
+  }
   input.mx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
   input.mz = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0);
   input.fire = mouseDown;
@@ -1025,6 +1072,7 @@ function updateHud(s, me) {
     }
   }
   if (!me) return;
+  if (touchState.on) $('tFish').textContent = me.fishing ? (me.fishing.depth < CFG.fishMinBite ? 'CANCEL' : 'REEL') : 'CAST';
   $('hpbar').style.width = Math.max(0, me.hp) + '%';
   $('hptxt').textContent = me.alive ? Math.max(0, me.hp) + ' hp' : 'respawning in ' + Math.ceil(me.respawnT);
   $('armorbar').style.width = (me.armor / CFG.maxArmor) * 100 + '%';
@@ -1213,7 +1261,9 @@ function updateCamera(me, dt, t) {
 // ------------------------------------------------------------------ loop
 let lastT = performance.now();
 let menuOrbit = 0;
+let lastW = 0, lastH = 0;
 function frame(now) {
+  if (window.innerWidth !== lastW || window.innerHeight !== lastH) { lastW = window.innerWidth; lastH = window.innerHeight; resize(); }
   const dt = Math.min(0.1, (now - lastT) / 1000);
   lastT = now;
   const t = now / 1000;
@@ -1285,6 +1335,7 @@ function beginPlay(src) {
   ['menu', 'online', 'results', 'pause'].forEach((id) => $(id).classList.add('hidden'));
   $('results').classList.remove('shown');
   hud.classList.remove('hidden');
+  document.getElementById('touch').classList.toggle('hidden', !touchState.on);
 }
 $('btnSolo').onclick = () => {
   ac();
@@ -1343,6 +1394,7 @@ function quitToMenu() {
   source = null; playing = false; paused = false;
   clearViews();
   hud.classList.add('hidden');
+  document.getElementById('touch').classList.add('hidden');
   ['pause', 'results', 'online'].forEach((id) => $(id).classList.add('hidden'));
   $('menu').classList.remove('hidden');
 }

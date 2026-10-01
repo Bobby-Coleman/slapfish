@@ -23,7 +23,7 @@
   :root[data-theme="dark"] { --paper: #fff8ec; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #7fd6f0; font-family: 'Baloo 2', system-ui, sans-serif; color: var(--hud-fg); user-select: none; -webkit-user-select: none; }
-  #view { position: fixed; inset: 0; display: block; cursor: crosshair; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
   .hidden { display: none !important; }
   #tags { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
   .tag { position: absolute; transform: translate(-50%, -100%); text-align: center; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px #0008; white-space: nowrap; }
@@ -102,6 +102,31 @@
   #results td, #results th { padding: 4px 6px; text-align: left; border-bottom: 1px solid #10223a22; }
   #results th { font-size: 13px; opacity: .7; }
   #pause { z-index: 6; }
+
+  /* touch controls */
+  #touch { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  .stick { position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: 130px; height: 130px; border-radius: 50%; background: #10223a40; border: 3px solid #fff8ec55; pointer-events: auto; touch-action: none; }
+  .stick i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: #fff8eccc; }
+  #stickL { left: 20px; }
+  #stickR { right: 20px; }
+  #stickR i { background: #ff5a5fdd; }
+  .tbtn { position: absolute; right: 20px; width: 62px; height: 62px; border-radius: 50%; border: 3px solid #fff8ec88; background: #10223a99; color: #fff8ec; font: 800 13px 'Baloo 2', system-ui, sans-serif; pointer-events: auto; touch-action: none; }
+  .tbtn:active { background: #ffd23f; color: #10223a; }
+  #tFish { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 96px; width: 74px; height: 74px; font-size: 15px; background: #1fa3c9cc; }
+  #tDash { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 16px; }
+  #tSwap { bottom: calc(240px + env(safe-area-inset-bottom, 0px)); right: 30px; width: 50px; height: 50px; }
+  #tPause { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--hud-bg); color: #fff; font-size: 18px; pointer-events: auto; }
+  body.touch #help, body.touch #minimap { display: none; }
+  body.touch #bottom { bottom: auto; top: 52px; left: 8px; right: 8px; gap: 6px; }
+  body.touch #vitals { width: 130px; padding: 6px 8px; }
+  body.touch #weapon { padding: 4px 8px; min-width: 0; flex: 1; }
+  body.touch #wname { font-size: 16px; }
+  body.touch #wdesc { font-size: 11px; }
+  body.touch #prompt { bottom: auto; top: 140px; font-size: 14px; }
+  body.touch #fishing { top: 150px; transform: none; left: 8px; right: auto; width: 120px; padding: 6px; }
+  body.touch #gauge { height: 140px; }
+  body.touch #feed { top: 140px; }
+  body.touch #toast { font-size: 26px; top: 30%; }
   @media (max-width: 700px) {
     #help, #minimap { display: none; }
     #vitals { width: 150px; }
@@ -146,6 +171,15 @@
   </div>
 </div>
 
+<div id="touch" class="hidden">
+  <div class="stick" id="stickL"><i></i></div>
+  <div class="stick" id="stickR"><i></i></div>
+  <button class="tbtn" id="tFish">CAST</button>
+  <button class="tbtn" id="tDash">DASH</button>
+  <button class="tbtn" id="tSwap">SWAP</button>
+  <button id="tPause" aria-label="Pause">II</button>
+</div>
+
 <div id="menu" class="screen">
   <div class="card">
     <h1 class="logo">SLAP<span>FISH</span></h1>
@@ -157,7 +191,7 @@
     <button class="big play" id="btnSolo">Play vs bots</button>
     <button class="big alt" id="btnOnline">Play online with friends</button>
     <div class="controls">
-      <b>WASD</b> move &nbsp; <b>Mouse</b> aim &nbsp; <b>Click</b> attack<br>
+      <b>WASD</b> move &nbsp; <b>Mouse</b> aim &nbsp; <b>Click</b> attack &nbsp; (on a phone: left stick moves, right stick aims and fires)<br>
       <b>R</b> or <b>Right click</b> cast, then again to reel in<br>
       <b>Space</b> dash (also bails out of fishing) &nbsp; <b>E</b> swap fish<br>
       Leave the line in longer for rarer fish. Pier tips are deep water: faster depth, but nowhere to run. Getting hit snaps your line.
