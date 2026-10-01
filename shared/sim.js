@@ -93,13 +93,27 @@
     (BY_RARITY[r] = BY_RARITY[r] || []).push(id);
   }
 
+  // Gadget fish: a second slot next to your main fish. Q (or the GADGET button) uses one charge.
+  // You can use gadgets while fishing, so they double as protection for your cast.
+  const GADGETS = {
+    flounder: { name: 'Flounder Mine', w: 22, charges: 2, desc: 'Lay it flat on the boards. Boom when someone steps on it.', dmg: 14, kb: 18, aoe: 2.2, arm: 1.0, life: 40, trigger: 1.3 },
+    urchin: { name: 'Urchin Scatter', w: 20, charges: 2, desc: 'Throw a spray of spiky urchins that sting and slow.', dmg: 6, kb: 4, slow: 1.6, life: 20, spikes: 4, maxRange: 10, flight: 0.55, trigger: 0.8 },
+    jelly: { name: 'Jellyfish Trap', w: 18, charges: 2, desc: 'Drop a jelly. Whoever touches it gets zapped and bounced.', dmg: 5, kb: 13, stun: 0.9, life: 30, trigger: 1.1, uses: 2 },
+    ink: { name: 'Octopus Ink Bomb', w: 16, charges: 1, desc: 'An ink cloud that hides and slows everyone inside.', radius: 3.8, life: 6, maxRange: 12, flight: 0.6 },
+    clam: { name: 'Giant Clam Wall', w: 12, charges: 1, desc: 'A clam that blocks shots and bodies. Great cover while fishing.', r: 1.25, life: 10 },
+    grouper: { name: 'Grouper Turret', w: 12, charges: 1, desc: 'Plants a grouper that spits bombs at the nearest enemy.', life: 9, every: 1.4, range: 14, dmg: 10, kb: 12, aoe: 2.2, flight: 0.7 },
+  };
+  // chance that a catch also brings up a gadget, by depth tier
+  const BYCATCH = { shallow: 0.2, reef: 0.3, deep: 0.4, abyss: 0.55 };
+
   // Pelican air drops.
   const DROPS = {
-    heal: { name: 'Fish & Chips', w: 28, desc: '+45 health' },
-    armor: { name: 'Crab Shell', w: 24, desc: '+50 armor' },
-    bubble: { name: 'Bubble Bobber', w: 20, desc: 'Next fishing trip: 2 hits blocked' },
-    lure: { name: 'Golden Lure', w: 16, desc: 'Next 2 casts sink twice as fast' },
+    heal: { name: 'Fish & Chips', w: 26, desc: '+45 health' },
+    armor: { name: 'Crab Shell', w: 20, desc: '+50 armor' },
+    bubble: { name: 'Bubble Bobber', w: 16, desc: 'Next fishing trip: 2 hits blocked' },
+    lure: { name: 'Golden Lure', w: 12, desc: 'Next 2 casts sink twice as fast' },
     cooler: { name: 'Mystery Cooler', w: 12, desc: 'A random rare-or-better fish' },
+    tackle: { name: 'Tackle Box', w: 14, desc: 'A random gadget fish with an extra charge' },
   };
 
   const COLORS = ['#ff5a5f', '#3fa7ff', '#ffd23f', '#5ee07a', '#c86bff', '#ff9f43', '#2ee6d6', '#ff6bcb'];
@@ -167,6 +181,13 @@
   }
 
 
+  // Barrels, the rod rack, and any giant clams currently deployed.
+  function solidObstacles(S) {
+    const list = MAP.obstacles.concat([MAP.rack]);
+    if (S) for (const t of S.traps) if (t.kind === 'clam') list.push({ x: t.x, z: t.z, r: GADGETS.clam.r });
+    return list;
+  }
+
   // Closest point on the pier to (x, z), used for swimming back and climbing out.
   function nearestPlatformPoint(x, z) {
     const rects = [
@@ -227,6 +248,7 @@
         players: {},
         projectiles: [],
         items: [], // ground pickups: rods, fish, drops
+        traps: [], // placed gadgets: mines, spikes, jellies, ink clouds, clams, turrets
         pelicans: [],
         rack: [],
         winner: null,
@@ -258,12 +280,12 @@
         x: 0, z: 0, y: 0, vx: 0, vz: 0, ax: 1, az: 0,
         pct: 0, armor: 0, alive: false, respawnT: 0.5, invulnT: 0, vy: 0, air: false, swim: false, climbT: 0, cx: 0, cz: 0,
         hasRod: false, weapon: null, cd: 0, dashCd: 0, dashT: 0, kbT: 0, slowT: 0, stunT: 0,
-        fishing: null, bubble: 0, lure: 0,
+        fishing: null, bubble: 0, lure: 0, gadget: null,
         kos: 0, deaths: 0, caught: 0, lastHitBy: null, lastHitT: -99, swingT: 0,
         brain: isBot ? { spot: null, target: 0, stuckT: 0, lastX: 0, lastZ: 0, think: 0, strafe: 1, aimErr: 0 } : null,
       };
       S.players[id] = p;
-      g.inputs[id] = { mx: 0, mz: 0, ax: 1, az: 0, fire: false, dash: false, fish: false, use: false };
+      g.inputs[id] = { mx: 0, mz: 0, ax: 1, az: 0, fire: false, dash: false, fish: false, use: false, gadget: false };
       syncRack();
       return p;
     };
@@ -286,12 +308,14 @@
       cur.dash = cur.dash || !!inp.dash;
       cur.fish = cur.fish || !!inp.fish;
       cur.use = cur.use || !!inp.use;
+      cur.gadget = cur.gadget || !!inp.gadget;
     };
     g.start = function () {
       S.phase = 'play';
       S.time = 0;
       S.roundLeft = S.roundSeconds;
       S.projectiles = [];
+      S.traps = [];
       S.items = [];
       S.pelicans = [];
       S.winner = null;
@@ -300,7 +324,7 @@
       for (const r of S.rack) { r.ready = true; r.t = 0; }
       let i = 0;
       for (const p of Object.values(S.players)) {
-        Object.assign(p, { kos: 0, deaths: 0, caught: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0 });
+        Object.assign(p, { kos: 0, deaths: 0, caught: 0, alive: false, respawnT: 0.2 + i * 0.05, weapon: null, hasRod: false, fishing: null, armor: 0, bubble: 0, lure: 0, gadget: null });
         i++;
       }
       emit('start', {});
@@ -338,6 +362,7 @@
       p.alive = false;
       p.respawnT = C.respawnSeconds;
       // whatever you were carrying is lost at sea
+      p.gadget = null;
       p.weapon = null;
       p.hasRod = false;
       p.fishing = null;
@@ -472,6 +497,17 @@
       return { wid, tier: tier.id };
     }
 
+    function randomGadget() {
+      const keys = Object.keys(GADGETS);
+      return keys[pickWeighted(keys.map((k) => GADGETS[k].w))];
+    }
+    function giveGadget(p, gid, extra) {
+      const gd = GADGETS[gid];
+      if (p.gadget && p.gadget.id === gid) p.gadget.n = Math.min(3, p.gadget.n + gd.charges + extra);
+      else p.gadget = { id: gid, n: gd.charges + extra };
+      emit('gadget', { id: p.id, g: gid, n: p.gadget.n });
+    }
+
     function giveWeapon(p, wid, uses) {
       p.weapon = { id: wid, uses: uses != null ? uses : Math.round(WEAPONS[wid].uses * C.usesScale) };
       p.cd = Math.min(p.cd, 0.2);
@@ -496,6 +532,7 @@
         else if (it.kind === 'armor') { if (p.armor < C.maxArmor) { p.armor = C.maxArmor; take = true; } }
         else if (it.kind === 'bubble') { p.bubble = 2; take = true; }
         else if (it.kind === 'lure') { p.lure = 2; take = true; }
+        else if (it.kind === 'tackle') { giveGadget(p, randomGadget(), 1); take = true; }
         else if (it.kind === 'cooler') {
           const ri = 2 + pickWeighted([60, 30, 10]);
           const list = BY_RARITY[RARITIES[ri]];
@@ -542,12 +579,14 @@
 
       // in the water you can only swim back; in the air you can still attack once out of hitstun
       if (p.swim || p.air) {
-        inp.fish = false; inp.dash = false; inp.use = false;
+        inp.fish = false; inp.dash = false; inp.use = false; inp.gadget = false;
         if (p.air && inp.fire && p.cd <= 0 && p.kbT <= 0 && !stunned) useWeapon(p, inp);
         integrate(p, dt, stunned ? 0 : inp.mx, stunned ? 0 : inp.mz);
         checkBlast(p);
         return;
       }
+
+      if (inp.gadget) { inp.gadget = false; if (!stunned) useGadget(p, inp); }
 
       // ---- fishing
       if (p.fishing) {
@@ -565,6 +604,7 @@
             p.caught++;
             p.fishing = null;
             emit('catch', { id: p.id, w: r.wid, rarity: WEAPONS[r.wid].rarity, tier: r.tier, depth: f.depth, perfect: f.perfect });
+            if (Math.random() < BYCATCH[r.tier]) giveGadget(p, randomGadget(), 0);
           }
         } else {
           f.biteT = Math.max(0, f.biteT - dt);
@@ -616,6 +656,120 @@
       if (ml > 1) { mx /= ml; mz /= ml; }
       integrate(p, dt, mx, mz);
       checkBlast(p);
+    }
+
+    function useGadget(p, inp) {
+      if (!p.gadget) return;
+      const gid = p.gadget.id, gd = GADGETS[gid];
+      const ax = p.ax, az = p.az;
+      const ahead = (d) => {
+        let x = p.x + ax * d, z = p.z + az * d;
+        for (let i = 0; i < 10 && !onPlatform(x, z, 0.5); i++) { x = p.x + (x - p.x) * 0.7; z = p.z + (z - p.z) * 0.7; }
+        return { x, z };
+      };
+      const add = (t) => { t.id = uid(); t.owner = p.id; t.kind = t.kind || gid; S.traps.push(t); return t; };
+      if (gid === 'flounder') {
+        // laid right behind you, so it guards your back while you fish
+        const pt = ahead(-1.1);
+        const mine = S.traps.filter((t) => t.kind === 'flounder' && t.owner === p.id);
+        if (mine.length >= 3) S.traps.splice(S.traps.indexOf(mine[0]), 1);
+        add({ x: pt.x, z: pt.z, life: gd.life, arm: gd.arm, rot: Math.atan2(ax, az) });
+      } else if (gid === 'jelly') {
+        const pt = ahead(1.6);
+        add({ x: pt.x, z: pt.z, life: gd.life, arm: 0.4, uses: gd.uses });
+      } else if (gid === 'clam') {
+        const pt = ahead(1.9);
+        add({ x: pt.x, z: pt.z, life: gd.life, rot: Math.atan2(ax, az) });
+      } else if (gid === 'grouper') {
+        const pt = ahead(1.4);
+        add({ x: pt.x, z: pt.z, life: gd.life, cd: 0.6, rot: Math.atan2(ax, az) });
+      } else if (gid === 'urchin' || gid === 'ink') {
+        const dist = clamp(inp.aimDist || 8, 2, gd.maxRange);
+        S.projectiles.push({ id: uid(), w: gid, gadget: true, owner: p.id, x: p.x, z: p.z, sx: p.x, sz: p.z, tx: p.x + ax * dist, tz: p.z + az * dist, flight: gd.flight, life: gd.flight, lob: true, rad: 0.4, hitIds: [] });
+      }
+      emit('usegadget', { id: p.id, g: gid, x: p.x, z: p.z });
+      p.gadget.n--;
+      if (p.gadget.n <= 0) p.gadget = null;
+    }
+
+    function stepTraps(dt) {
+      const players = Object.values(S.players);
+      for (let i = S.traps.length - 1; i >= 0; i--) {
+        const t = S.traps[i];
+        const owner = S.players[t.owner];
+        t.life -= dt;
+        if (t.arm > 0) t.arm -= dt;
+        let gone = t.life <= 0;
+        const victims = (r) => players.filter((q) => q.alive && q.id !== t.owner && !q.air && q.climbT <= 0 && len(q.x - t.x, q.z - t.z) < r);
+        if (t.kind === 'flounder' && !(t.arm > 0)) {
+          const v = victims(GADGETS.flounder.trigger);
+          if (v.length) {
+            gone = true;
+            const gd = GADGETS.flounder;
+            emit('boom', { x: t.x, z: t.z, r: gd.aoe, mine: true });
+            for (const q of players) {
+              if (!q.alive || q.id === t.owner) continue;
+              const d = len(q.x - t.x, q.z - t.z);
+              if (d < gd.aoe + C.playerRadius) hit(q, owner, gd.dmg, q.x - t.x + 0.001, q.z - t.z, gd.kb);
+            }
+          }
+        } else if (t.kind === 'spike') {
+          const v = victims(GADGETS.urchin.trigger);
+          if (v.length) {
+            const gd = GADGETS.urchin;
+            hit(v[0], owner, gd.dmg, v[0].vx || 0.01, v[0].vz || 0.01, gd.kb, { slow: gd.slow });
+            emit('spike', { x: t.x, z: t.z });
+            gone = true;
+          }
+        } else if (t.kind === 'jelly' && !(t.arm > 0)) {
+          const v = victims(GADGETS.jelly.trigger);
+          if (v.length) {
+            const gd = GADGETS.jelly;
+            for (const q of v) hit(q, owner, gd.dmg, q.x - t.x + 0.001, q.z - t.z, gd.kb, { stun: gd.stun });
+            emit('zapjelly', { x: t.x, z: t.z });
+            t.uses--; t.arm = 0.8;
+            if (t.uses <= 0) gone = true;
+          }
+        } else if (t.kind === 'ink') {
+          for (const q of players) if (q.alive && len(q.x - t.x, q.z - t.z) < GADGETS.ink.radius) q.slowT = Math.max(q.slowT, 0.3);
+        } else if (t.kind === 'grouper') {
+          t.cd -= dt;
+          if (t.cd <= 0) {
+            const gd = GADGETS.grouper;
+            let best = null, bd = gd.range;
+            for (const q of players) {
+              if (!q.alive || q.id === t.owner || q.air) continue;
+              const d = len(q.x - t.x, q.z - t.z);
+              if (d < bd) { bd = d; best = q; }
+            }
+            if (best) {
+              t.cd = gd.every;
+              t.rot = Math.atan2(best.x - t.x, best.z - t.z);
+              S.projectiles.push({ id: uid(), w: 'grouper', gadget: true, owner: t.owner, x: t.x, z: t.z, sx: t.x, sz: t.z, tx: best.x + (best.vx || 0) * gd.flight * 0.6, tz: best.z + (best.vz || 0) * gd.flight * 0.6, flight: gd.flight, life: gd.flight, lob: true, rad: 0.3, hitIds: [] });
+              emit('spit', { x: t.x, z: t.z });
+            } else t.cd = 0.3;
+          }
+        }
+        if (gone) S.traps.splice(i, 1);
+      }
+    }
+
+    // what lobbed gadgets do when they land
+    function landGadget(pr, owner) {
+      const gd = GADGETS[pr.w];
+      if (pr.w === 'urchin') {
+        for (let k = 0; k < gd.spikes; k++) {
+          const a = (k / gd.spikes) * Math.PI * 2 + Math.random();
+          const x = pr.x + Math.cos(a) * rand(0.6, 1.6), z = pr.z + Math.sin(a) * rand(0.6, 1.6);
+          if (onPlatformPoint(x, z)) S.traps.push({ id: uid(), kind: 'spike', owner: pr.owner, x, z, life: gd.life });
+        }
+        emit('scatter', { x: pr.x, z: pr.z });
+      } else if (pr.w === 'ink') {
+        S.traps.push({ id: uid(), kind: 'ink', owner: pr.owner, x: pr.x, z: pr.z, life: gd.life });
+        emit('inkcloud', { x: pr.x, z: pr.z, r: gd.radius });
+      } else if (pr.w === 'grouper') {
+        explode(owner, pr.x, pr.z, gd);
+      }
     }
 
     function checkBlast(p) {
@@ -678,7 +832,7 @@
         p.vy -= C.gravity * dt;
         p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt;
         if (p.y < 1.4) {
-          for (const o of MAP.obstacles.concat([MAP.rack])) {
+          for (const o of solidObstacles(S)) {
             const dx = p.x - o.x, dz = p.z - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
             if (d < min && d > 0.0001) { p.x = o.x + (dx / d) * min; p.z = o.z + (dz / d) * min; }
           }
@@ -716,7 +870,7 @@
         if (!onPlatform(nx, nz, mm)) { nz = p.z; p.vz = 0; }
       }
       // obstacles
-      for (const o of MAP.obstacles.concat([MAP.rack])) {
+      for (const o of solidObstacles(S)) {
         const dx = nx - o.x, dz = nz - o.z, d = len(dx, dz), min = o.r + C.playerRadius;
         if (d < min && d > 0.0001) { nx = o.x + (dx / d) * min; nz = o.z + (dz / d) * min; }
       }
@@ -747,7 +901,7 @@
     function stepProjectiles(dt) {
       for (let i = S.projectiles.length - 1; i >= 0; i--) {
         const pr = S.projectiles[i];
-        const w = WEAPONS[pr.w];
+        const w = WEAPONS[pr.w] || GADGETS[pr.w];
         const owner = S.players[pr.owner];
         pr.life -= dt;
         if (pr.lob) {
@@ -756,15 +910,16 @@
           pr.z = pr.sz + (pr.tz - pr.sz) * k;
           pr.h = Math.sin(k * Math.PI) * 4;
           if (pr.life <= 0) {
-            if (onPlatformPoint(pr.x, pr.z)) explode(owner, pr.x, pr.z, w);
-            else emit('splash', { x: pr.x, z: pr.z, small: true });
+            if (!onPlatformPoint(pr.x, pr.z)) emit('splash', { x: pr.x, z: pr.z, small: true });
+            else if (pr.gadget) landGadget(pr, owner);
+            else explode(owner, pr.x, pr.z, w);
             S.projectiles.splice(i, 1);
           }
           continue;
         }
         pr.x += pr.vx * dt; pr.z += pr.vz * dt;
         let dead = pr.life <= 0;
-        for (const o of MAP.obstacles.concat([MAP.rack])) {
+        for (const o of solidObstacles(S)) {
           if (len(pr.x - o.x, pr.z - o.z) < o.r + pr.rad) { dead = true; break; }
         }
         if (!dead) {
@@ -825,6 +980,7 @@
       for (const p of Object.values(S.players)) stepPlayer(p, g.inputs[p.id], dt);
       separatePlayers();
       stepProjectiles(dt);
+      stepTraps(dt);
       stepWorld(dt);
       if (S.roundLeft <= 0) {
         const ranked = Object.values(S.players).sort((a, b) => b.kos - a.kos || a.deaths - b.deaths);
@@ -851,9 +1007,10 @@
           pct: Math.round(p.pct), armor: Math.round(p.armor), alive: p.alive, air: p.air, swim: p.swim, climbT: r2(p.climbT), respawnT: r2(p.respawnT), invulnT: r2(p.invulnT),
           hasRod: p.hasRod, weapon: p.weapon, cd: r2(p.cd), dashCd: r2(p.dashCd), dashT: r2(p.dashT), slowT: r2(p.slowT), stunT: r2(p.stunT), swingT: r2(p.swingT),
           fishing: p.fishing ? { depth: r2(p.fishing.depth), mult: p.fishing.mult, bx: r2(p.fishing.bx), bz: r2(p.fishing.bz), dx: p.fishing.dx, dz: p.fishing.dz, reelT: r2(p.fishing.reelT), tip: p.fishing.tip, biteT: r2(p.fishing.biteT) } : null,
-          bubble: p.bubble, lure: p.lure, kos: p.kos, deaths: p.deaths, caught: p.caught,
+          bubble: p.bubble, lure: p.lure, gadget: p.gadget, kos: p.kos, deaths: p.deaths, caught: p.caught,
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
+        traps: S.traps.map((t) => ({ id: t.id, kind: t.kind, owner: t.owner, x: r2(t.x), z: r2(t.z), life: r2(t.life), armed: !(t.arm > 0), rot: t.rot ? r2(t.rot) : 0 })),
         projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
         items: S.items.map((i) => ({ id: i.id, kind: i.kind, weapon: i.weapon, x: r2(i.x), z: r2(i.z), y: r2(i.y || 0) })),
         pelicans: S.pelicans.map((p) => ({ id: p.id, x: r2(p.x), z: r2(p.z), dx: p.dx, dz: p.dz, tx: p.tx, tz: p.tz, kind: p.kind, dropped: p.dropped })),
@@ -895,7 +1052,7 @@
     const S = g.state;
     const b = p.brain;
     const skill = BOT_SKILL[p.difficulty] || BOT_SKILL.normal;
-    const out = { mx: 0, mz: 0, ax: p.ax, az: p.az, fire: false, dash: false, fish: false, use: false, aimDist: 8 };
+    const out = { mx: 0, mz: 0, ax: p.ax, az: p.az, fire: false, dash: false, fish: false, use: false, gadget: false, aimDist: 8 };
     if (!p.alive || p.climbT > 0) { b.spot = null; return out; }
     if (p.swim || p.air) {
       // swim (or drift) back toward the nearest bit of pier, aiming for the middle when airborne
@@ -944,6 +1101,18 @@
       b.stuckT = 0; b.lastX = p.x; b.lastZ = p.z;
     }
 
+    // --- gadgets: guard the cast, or toss throwables at whoever is close
+    if (p.gadget && enemy && ed < 9 && Math.random() < (p.fishing ? 0.08 : 0.025)) {
+      const gid = p.gadget.id;
+      const tx = enemy.x - p.x, tz = enemy.z - p.z, tl = len(tx, tz) || 1;
+      if (gid === 'urchin' || gid === 'ink' || gid === 'clam' || gid === 'grouper' || gid === 'jelly') {
+        out.ax = tx / tl; out.az = tz / tl; out.aimDist = ed;
+        out.gadget = true;
+        return out;
+      }
+      if (gid === 'flounder') { out.ax = -tx / tl; out.az = -tz / tl; out.gadget = true; return out; }
+    }
+
     // --- fishing: decide when to reel
     if (p.fishing) {
       const f = p.fishing;
@@ -966,6 +1135,7 @@
       if (it.kind === 'heal') v = p.pct > 40 ? 10 : 0;
       else if (it.kind === 'armor') v = p.armor < 25 ? 8 : 0;
       else if (it.kind === 'cooler') v = 12;
+      else if (it.kind === 'tackle') v = p.gadget ? 3 : 7;
       else if (it.kind === 'fish') v = p.weapon ? 0 : 9;
       else if (it.kind === 'rod') v = p.hasRod ? 0 : 6;
       else if (it.kind === 'bubble' || it.kind === 'lure') v = 4;
@@ -1041,5 +1211,5 @@
     return out;
   }
 
-  return { walkStep, nearestPlatformPoint, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { walkStep, nearestPlatformPoint, GADGETS, BYCATCH, CFG, MAP, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });

@@ -35,6 +35,7 @@ To test how online play feels with lag, run `LAG_MS=60 npm start` (adds 60 ms ea
 | R or right click | Cast, then reel in |
 | Space | Dash (also bails out of fishing) |
 | E | Swap your fish for one on the ground |
+| Q | Use your gadget fish (flounder mine, urchins, jelly, ink, clam, grouper) |
 | Esc | Pause (solo) |
 | M | Mute |
 

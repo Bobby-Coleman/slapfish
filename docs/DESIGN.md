@@ -104,11 +104,29 @@ A pelican flies in every 40 s (plus or minus 10 s; the first at 25 s). Its drop 
 
 | Drop | Chance | Effect |
 |---|---|---|
-| Fish & Chips | 28% | Heals 30% damage |
-| Crab Shell | 24% | Armor to 50. Armor absorbs damage before it adds to your %, and cuts knockback by 20% while it lasts. |
-| Bubble Bobber | 20% | Your next fishing trip blocks 2 hits entirely |
-| Golden Lure | 16% | Your next 2 casts sink twice as fast |
+| Fish & Chips | 26% | Heals 30% damage |
+| Crab Shell | 20% | Armor to 50. Armor absorbs damage before it adds to your %, and cuts knockback by 20% while it lasts. |
+| Bubble Bobber | 16% | Your next fishing trip blocks 2 hits entirely |
+| Golden Lure | 12% | Your next 2 casts sink twice as fast |
 | Mystery Cooler | 12% | A random fish: rare 60%, epic 30%, legendary 10% |
+| Tackle Box | 14% | A random gadget fish with one extra charge |
+
+## Gadget fish (the second slot)
+
+Gadgets sit in their own slot next to your main fish, so picking one up never costs you your weapon. Press **Q** (or the GADGET button on a phone) to use a charge. Gadgets work while you're fishing, which makes them the tool for guarding a long cast: drop a flounder behind you, put up a clam, then sink the line.
+
+You get them as **bycatch**: every catch has a chance to bring one up as well, and deeper water gives better odds (Shallows 20%, Reef 30%, Deep 40%, Abyss 55%). Pelicans also drop Tackle Boxes. Catching the gadget you already have adds its charges (up to 3); a different one replaces it. Gadgets are lost on a KO. You're never hurt by your own gadgets.
+
+| Gadget | Odds | Charges | Use | Effect |
+|---|---|---|---|---|
+| Flounder Mine | 22 | 2 | Laid flat right behind you. Arms after 1 s, lasts 40 s, max 3 down per player. | First enemy to step on it: 14 dmg, knockback 18 in a 2.2 blast. Half see-through to everyone but its owner. |
+| Urchin Scatter | 20 | 2 | Lobbed up to 10 away | Scatters 4 urchin spikes that last 20 s. Each one stings the first enemy over it: 6 dmg, knockback 4, slowed 1.6 s. |
+| Jellyfish Trap | 18 | 2 | Placed 1.6 in front | Zaps enemies who touch it: 5 dmg, knockback 13, stunned 0.9 s. Two zaps, lasts 30 s. |
+| Octopus Ink Bomb | 16 | 1 | Lobbed up to 12 away | A 3.8-wide ink cloud for 6 s. Everyone inside is slowed and their name tag and damage % are hidden. |
+| Giant Clam Wall | 12 | 1 | Placed 1.9 in front | Blocks bodies and straight shots for 10 s. Lobbed fish arc over it. |
+| Grouper Turret | 12 | 1 | Placed 1.4 in front | For 9 s, spits a bomb (10 dmg, knockback 12, 2.2 blast) at the nearest enemy within 14 every 1.4 s. |
+
+Balance intent: a gadget alone almost never KOs anyone at low %; it builds damage, controls space, or buys a safe cast. The Flounder Mine is the strongest hit, so it's the most visible to its owner and the slowest to arm. Bots use them too, mostly while fishing when someone walks up.
 
 ## Players and the arena
 
@@ -148,6 +166,5 @@ Bots don't edge-guard on purpose and swim straight home, so they KO each other l
 - Teams (2v2) or free-for-all only?
 - Should the rod also break after N casts, so the rack stays contested all round?
 - A recovery move (a double jump or a "fish flop" up the side of the pier) so good players can save themselves at high %.
-- More gear for fishing, such as a "Tackle Box" that adds 50% depth gain but makes you glow on the minimap.
 - Map hazards: a wave that washes over one pier every couple of minutes, or a shark circling the deep tips that snaps lines at random.
 - Controller and touch controls.

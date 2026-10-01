@@ -67,6 +67,13 @@
   #ammo { display: flex; gap: 3px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
   #ammo i { width: 8px; height: 12px; border-radius: 3px; background: var(--sun); }
   #ammo i.used { background: #ffffff30; }
+  #gadget { background: var(--hud-bg); border-radius: 14px; padding: 6px 10px; width: 210px; display: flex; gap: 8px; align-items: center; border: 3px solid transparent; }
+  #gadget.empty { opacity: .6; }
+  #gicon { font-size: 28px; width: 34px; text-align: center; }
+  #gname { font-weight: 800; font-size: 15px; line-height: 1.1; }
+  #gcharges { color: var(--sun); font-size: 12px; letter-spacing: 2px; min-height: 12px; }
+  #gdesc { font-size: 11px; opacity: .8; line-height: 1.2; }
+  #gadget kbd { margin-left: auto; background: #ffffff22; border-radius: 6px; padding: 0 6px; font: 800 13px inherit; }
   #help { background: var(--hud-bg); border-radius: 14px; padding: 6px 12px; font-size: 13px; line-height: 1.35; width: 220px; }
   #help b { color: var(--sun); }
   #prompt { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: var(--hud-bg); padding: 4px 14px; border-radius: 12px; font-weight: 700; font-size: 17px; }
@@ -122,8 +129,10 @@
   #tFish { bottom: calc(260px + env(safe-area-inset-bottom, 0px)); right: 18px; width: 70px; height: 70px; font-size: 14px; background: #1fa3c9cc; }
   #tDash { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); right: 16px; }
   #tSwap { bottom: calc(268px + env(safe-area-inset-bottom, 0px)); right: 104px; width: 50px; height: 50px; }
+  #tGadget { bottom: calc(350px + env(safe-area-inset-bottom, 0px)); right: 22px; width: 62px; height: 62px; font-size: 11px; line-height: 1.1; background: #3ddc84cc; }
+  #tGadget.dim { opacity: .45; }
   #tPause { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--hud-bg); color: #fff; font-size: 18px; pointer-events: auto; }
-  body.touch #help, body.touch #minimap { display: none; }
+  body.touch #help, body.touch #minimap, body.touch #gadget { display: none; }
   body.touch #bottom { bottom: auto; top: 96px; left: 8px; right: 8px; gap: 6px; align-items: flex-start; }
   body.touch #vitals { width: 130px; padding: 6px 8px; }
   body.touch #weapon { padding: 4px 8px; min-width: 0; flex: 1; }
@@ -139,6 +148,8 @@
   body.touch #toast { font-size: 26px; top: 30%; }
   @media (max-width: 700px) {
     #help, #minimap { display: none; }
+    #gadget { width: auto; }
+    #gdesc { display: none; }
     #vitals { width: 150px; }
     #weapon { min-width: 0; flex: 1; }
     .logo { font-size: 46px; }
@@ -172,11 +183,12 @@
       <div id="buffs"></div>
     </div>
     <div id="weapon"><div id="wname">Slap</div><div id="wdesc">Grab a rod from the center</div><div id="ammo"></div></div>
+    <div id="gadget" class="empty"><div id="gicon">·</div><div><div id="gname">No gadget</div><div id="gcharges"></div><div id="gdesc">Deep catches can bring up bycatch</div></div><kbd>Q</kbd></div>
     <div id="help">
       <b>WASD</b> move · <b>Mouse</b> look & aim<br>
       <b>Click</b> attack · <b>Space</b> dash<br>
       <b>R</b>/<b>Right click</b> cast & reel<br>
-      <b>E</b> swap for a fish on the ground<br>
+      <b>E</b> swap fish · <b>Q</b> use gadget<br>
       <b>Arrows</b> turn camera · <b>Esc</b> pause · <b>M</b> sound
     </div>
   </div>
@@ -189,6 +201,7 @@
   <button class="tbtn" id="tFish">CAST</button>
   <button class="tbtn" id="tDash">DASH</button>
   <button class="tbtn" id="tSwap">SWAP</button>
+  <button class="tbtn" id="tGadget">GADGET</button>
   <button id="tPause" aria-label="Pause">II</button>
 </div>
 

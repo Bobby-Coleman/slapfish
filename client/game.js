@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const Sim = window.SlapSim;
-const { WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, MAP, CFG } = Sim;
+const { WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, GADGETS, MAP, CFG } = Sim;
 const STEP = 1 / 30;
 const WATER_Y = -0.9;
 
@@ -470,8 +470,82 @@ function makePelican() {
   return g;
 }
 
-const DROP_COLORS = { heal: '#ff5a5f', armor: '#ff8a5b', bubble: '#4fd5ff', lure: '#ffd23f', cooler: '#c86bff' };
-const DROP_ICON = { heal: '🍟', armor: '🦀', bubble: '🫧', lure: '✨', cooler: '🧊' };
+const DROP_COLORS = { heal: '#ff5a5f', armor: '#ff8a5b', bubble: '#4fd5ff', lure: '#ffd23f', cooler: '#c86bff', tackle: '#3ddc84' };
+const DROP_ICON = { heal: '🍟', armor: '🦀', bubble: '🫧', lure: '✨', cooler: '🧊', tackle: '🧰' };
+const GADGET_ICON = { flounder: '🫓', urchin: '🟣', jelly: '🪼', ink: '🐙', clam: '🦪', grouper: '🐟' };
+const GADGET_COLOR = { flounder: '#c9a46b', urchin: '#7a3fa0', jelly: '#ff8fd8', ink: '#3b2a5a', clam: '#e8d7b9', grouper: '#6b8f3a' };
+
+// ---- gadget models (all low-poly, built from primitives)
+function makeGadget(kind) {
+  const g = new THREE.Group();
+  if (kind === 'flounder') {
+    const body = mesh(new THREE.SphereGeometry(0.6, 8, 4), '#c9a46b');
+    body.scale.set(1, 0.18, 0.75);
+    body.position.y = 0.08;
+    const fin = mesh(new THREE.ConeGeometry(0.28, 0.35, 4), '#a8844f');
+    fin.rotation.x = -Math.PI / 2; fin.position.set(0, 0.08, -0.6); fin.scale.y = 0.4;
+    const e1 = mesh(lowSphere, '#10223a'); e1.scale.setScalar(0.07); e1.position.set(0.12, 0.2, 0.3);
+    const e2 = e1.clone(); e2.position.x = -0.05; e2.position.z = 0.36;
+    const fuse = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25, 4), '#333'); fuse.position.set(0, 0.25, 0);
+    const spark = mesh(lowSphere, '#ff5a5f', { emissive: '#ff3b3b' }); spark.scale.setScalar(0.08); spark.position.set(0, 0.4, 0);
+    g.add(body, fin, e1, e2, fuse, spark);
+    g.userData.spark = spark;
+  } else if (kind === 'spike' || kind === 'urchin') {
+    const core = mesh(new THREE.IcosahedronGeometry(0.22, 0), '#5a2a80');
+    g.add(core);
+    for (let i = 0; i < 10; i++) {
+      const sp = mesh(new THREE.ConeGeometry(0.04, 0.35, 3), '#2a1240');
+      const a = Math.random() * Math.PI * 2, b = Math.random() * Math.PI;
+      sp.position.set(Math.sin(b) * Math.cos(a) * 0.25, Math.cos(b) * 0.25, Math.sin(b) * Math.sin(a) * 0.25);
+      sp.lookAt(sp.position.clone().multiplyScalar(3)); sp.rotateX(Math.PI / 2);
+      g.add(sp);
+    }
+    if (kind === 'spike') g.position.y = 0.2;
+  } else if (kind === 'jelly') {
+    const bell = mesh(new THREE.SphereGeometry(0.55, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), '#ff8fd8', { transparent: true, opacity: 0.7 });
+    bell.position.y = 0.9;
+    g.add(bell);
+    for (let i = 0; i < 6; i++) {
+      const t = mesh(new THREE.CylinderGeometry(0.03, 0.015, 0.9, 3), '#ffc2ea');
+      const a = (i / 6) * Math.PI * 2;
+      t.position.set(Math.cos(a) * 0.3, 0.45, Math.sin(a) * 0.3);
+      g.add(t);
+    }
+    g.userData.bell = bell;
+  } else if (kind === 'ink') {
+    const cloud = new THREE.Group();
+    for (let i = 0; i < 9; i++) {
+      const b = new THREE.Mesh(lowSphere, new THREE.MeshBasicMaterial({ color: '#1d1430', transparent: true, opacity: 0.62, depthWrite: false }));
+      const a = (i / 9) * Math.PI * 2;
+      const r = i === 0 ? 0 : 2.1;
+      b.position.set(Math.cos(a) * r, 1 + Math.random() * 0.6, Math.sin(a) * r);
+      b.scale.setScalar(i === 0 ? 2.4 : 1.7 + Math.random() * 0.6);
+      cloud.add(b);
+    }
+    g.add(cloud);
+    g.userData.cloud = cloud;
+  } else if (kind === 'clam') {
+    const bottom = mesh(new THREE.SphereGeometry(1.25, 10, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), '#e8d7b9');
+    bottom.position.y = 0.6;
+    const top = mesh(new THREE.SphereGeometry(1.25, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), '#d9c29a');
+    top.position.set(0, 0.6, -0.15);
+    top.rotation.x = -0.75;
+    const pearl = mesh(lowSphere, '#fffaf0'); pearl.scale.setScalar(0.3); pearl.position.set(0, 0.75, 0.3);
+    g.add(bottom, top, pearl);
+  } else if (kind === 'grouper') {
+    const body = mesh(sphereGeo, '#6b8f3a');
+    body.scale.set(0.5, 0.45, 0.75); body.position.y = 0.6;
+    const lip = mesh(new THREE.TorusGeometry(0.2, 0.08, 5, 10), '#4a6a24');
+    lip.position.set(0, 0.6, 0.72);
+    const tail = mesh(new THREE.ConeGeometry(0.35, 0.5, 4), '#4a6a24');
+    tail.rotation.x = Math.PI / 2; tail.position.set(0, 0.6, -0.85);
+    const e1 = mesh(lowSphere, '#10223a'); e1.scale.setScalar(0.07); e1.position.set(0.28, 0.75, 0.45);
+    const e2 = e1.clone(); e2.position.x = -0.28;
+    const stand = mesh(new THREE.CylinderGeometry(0.4, 0.5, 0.2, 7), '#8b5a2b'); stand.position.y = 0.1;
+    g.add(body, lip, tail, e1, e2, stand);
+  }
+  return g;
+}
 function makeDropBox(kind) {
   const g = new THREE.Group();
   const box = mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), DROP_COLORS[kind] || '#fff');
@@ -604,7 +678,7 @@ const SFX = {
 
 // ------------------------------------------------------------------ input
 const keys = {};
-const input = { mx: 0, mz: 0, ax: 1, az: 0, aimDist: 8, fire: false, dash: false, fish: false, use: false };
+const input = { mx: 0, mz: 0, ax: 1, az: 0, aimDist: 8, fire: false, dash: false, fish: false, use: false, gadget: false };
 let mouseNDC = new THREE.Vector2();
 let mouseDown = false;
 window.addEventListener('keydown', (e) => {
@@ -612,6 +686,7 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (!keys[k]) {
     if (k === ' ' || k === 'shift') input.dash = true;
+    if (k === 'q' || k === 'g') input.gadget = true;
     if (k === 'r' || k === 'f') input.fish = true;
     if (k === 'e') input.use = true;
     if (k === 'escape') togglePause();
@@ -671,6 +746,7 @@ const tap = (id, fn) => document.getElementById(id).addEventListener('pointerdow
 tap('tFish', () => (input.fish = true));
 tap('tDash', () => (input.dash = true));
 tap('tSwap', () => (input.use = true));
+tap('tGadget', () => (input.gadget = true));
 tap('tPause', () => togglePause());
 
 // Over-the-shoulder camera: yaw/pitch come from the mouse (pointer lock), the right stick, or the arrow keys.
@@ -738,7 +814,7 @@ function localSource(opts) {
       acc += Math.min(dt, 0.25);
       while (acc >= STEP) {
         g.setInput('me', input);
-        input.dash = input.fish = input.use = false;
+        input.dash = input.fish = input.use = input.gadget = false;
         g.step(STEP);
         src.events.push(...g.drainEvents());
         src.prev = src.curr;
@@ -757,14 +833,14 @@ function netSource(url, room, name, onLobby, onClose) {
   const ws = new WebSocket(url);
   let lastSnapAt = 0, interval = 50, sendAcc = 0, seq = 0;
   const hist = []; // inputs the server hasn't acknowledged yet, replayed for prediction
-  const pending = { dash: false, fish: false, use: false };
+  const pending = { dash: false, fish: false, use: false, gadget: false };
   const src = {
     myId: null, local: false, events: [], curr: null, prev: null, alpha: 1, ws, pred: null, off: { x: 0, z: 0 },
     tick(dt) {
       const now = performance.now();
       src.alpha = Math.min(1.2, (now - lastSnapAt) / interval);
-      pending.dash = pending.dash || input.dash; pending.fish = pending.fish || input.fish; pending.use = pending.use || input.use;
-      input.dash = input.fish = input.use = false;
+      pending.dash = pending.dash || input.dash; pending.fish = pending.fish || input.fish; pending.use = pending.use || input.use; pending.gadget = pending.gadget || input.gadget;
+      input.dash = input.fish = input.use = input.gadget = false;
       sendAcc += dt;
       sendAcc = Math.min(sendAcc, STEP * 3);
       while (sendAcc >= STEP && ws.readyState === 1) {
@@ -774,7 +850,7 @@ function netSource(url, room, name, onLobby, onClose) {
         hist.push({ seq, mx: input.mx, mz: input.mz });
         if (hist.length > 90) hist.shift();
         if (src.pred) Sim.walkStep(src.pred, input.mx, input.mz, STEP);
-        pending.dash = pending.fish = pending.use = false;
+        pending.dash = pending.fish = pending.use = pending.gadget = false;
       }
     },
     start(round, bots) { ws.send(JSON.stringify({ t: 'start', round, bots })); },
@@ -814,7 +890,7 @@ function netSource(url, room, name, onLobby, onClose) {
 }
 
 // ------------------------------------------------------------------ view sync
-const views = { players: new Map(), projectiles: new Map(), items: new Map(), pelicans: new Map() };
+const views = { players: new Map(), projectiles: new Map(), items: new Map(), pelicans: new Map(), traps: new Map() };
 const tagsEl = document.getElementById('tags');
 const markers = new Map(); // pelican drop target markers
 
@@ -946,7 +1022,8 @@ function syncPlayers(s, prev, alpha, t, dt) {
     }
     // tag
     const head = new THREE.Vector3(pos.x, pos.y + 2.4, pos.z).project(camera);
-    const vis = o.visible && head.z < 1 && p.id !== source.myId;
+    const inked = s.traps && s.traps.some((tr) => tr.kind === 'ink' && Math.hypot(tr.x - p.x, tr.z - p.z) < GADGETS.ink.radius);
+    const vis = o.visible && head.z < 1 && p.id !== source.myId && !inked;
     v.tag.style.display = vis ? '' : 'none';
     if (vis) {
       v.tag.style.left = ((head.x + 1) / 2) * window.innerWidth + 'px';
@@ -987,7 +1064,8 @@ function syncProjectiles(s, prev, alpha) {
     let v = views.projectiles.get(pr.id);
     if (!v) {
       let m;
-      if (pr.w === 'shark' || pr.w === 'puffer' || pr.w === 'tuna') { m = makeFish(pr.w); m.scale.setScalar(pr.w === 'puffer' ? 1 : 0.8); }
+      if (GADGETS[pr.w]) { m = pr.w === 'grouper' ? mesh(lowSphere, '#2b2b2b') : makeGadget(pr.w === 'urchin' ? 'urchin' : 'ink'); if (pr.w === 'grouper') m.scale.setScalar(0.28); if (pr.w === 'ink') m.scale.setScalar(0.18); }
+      else if (pr.w === 'shark' || pr.w === 'puffer' || pr.w === 'tuna') { m = makeFish(pr.w); m.scale.setScalar(pr.w === 'puffer' ? 1 : 0.8); }
       else if (pr.w === 'narwhal') { m = mesh(new THREE.ConeGeometry(0.12, 1.4, 6), '#ffcc33'); m.geometry.rotateX(Math.PI / 2); }
       else { const L = PROJ_LOOK[pr.w] || ['#fff', 0.2]; m = mesh(lowSphere, L[0]); m.scale.setScalar(L[1]); }
       scene.add(m);
@@ -1000,6 +1078,39 @@ function syncProjectiles(s, prev, alpha) {
     else v.m.rotation.x += 0.3;
   }
   for (const [id, v] of views.projectiles) if (!seen.has(id)) { scene.remove(v.m); views.projectiles.delete(id); }
+}
+
+function syncTraps(s, t) {
+  const seen = new Set();
+  const myId = source.myId;
+  for (const tr of s.traps || []) {
+    seen.add(tr.id);
+    let v = views.traps.get(tr.id);
+    if (!v) {
+      const m = makeGadget(tr.kind);
+      scene.add(m);
+      v = { m, born: t };
+      views.traps.set(tr.id, v);
+    }
+    const m = v.m;
+    m.position.x = tr.x; m.position.z = tr.z;
+    if (tr.kind !== 'ink' && tr.kind !== 'spike') m.rotation.y = tr.rot || 0;
+    // pop in
+    const grow = Math.min(1, (t - v.born) * 5);
+    if (tr.kind === 'ink') { m.scale.setScalar(Math.min(1, (t - v.born) * 3) * (tr.life < 1 ? Math.max(0.2, tr.life) : 1)); m.userData.cloud.rotation.y = t * 0.3; }
+    else m.scale.setScalar(grow);
+    if (tr.kind === 'flounder') {
+      // hard to spot for everyone but the owner; the fuse blinks faster once armed
+      const mine = tr.owner === myId;
+      m.traverse((c) => { if (c.material && !c.userData.keep) { c.material = c.material.clone(); c.userData.keep = true; c.material.transparent = true; } });
+      m.traverse((c) => { if (c.material) c.material.opacity = mine ? 1 : 0.45; });
+      m.userData.spark.visible = !tr.armed || Math.sin(t * (mine ? 10 : 6)) > 0;
+    }
+    if (tr.kind === 'jelly') { m.userData.bell.scale.y = 1 + Math.sin(t * 4) * 0.15; m.position.y = Math.sin(t * 2) * 0.1; }
+    if (tr.kind === 'spike') m.rotation.y += 0.02;
+    if (tr.kind === 'clam' || tr.kind === 'grouper') { if (tr.life < 1.5) m.visible = Math.sin(t * 20) > 0; }
+  }
+  for (const [id, v] of views.traps) if (!seen.has(id)) { scene.remove(v.m); views.traps.delete(id); }
 }
 
 function syncItems(s, t) {
@@ -1183,6 +1294,25 @@ function updateHud(s, me) {
     wEl.style.borderColor = 'transparent';
     $('ammo').innerHTML = '';
   }
+  // gadget card
+  const gEl = $('gadget');
+  if (me.gadget) {
+    const gd = GADGETS[me.gadget.id];
+    gEl.classList.remove('empty');
+    gEl.style.borderColor = GADGET_COLOR[me.gadget.id];
+    $('gicon').textContent = GADGET_ICON[me.gadget.id];
+    $('gname').textContent = gd.name;
+    $('gcharges').textContent = '●'.repeat(me.gadget.n);
+    $('gdesc').textContent = gd.desc;
+  } else {
+    gEl.classList.add('empty');
+    gEl.style.borderColor = 'transparent';
+    $('gicon').textContent = '·';
+    $('gname').textContent = 'No gadget';
+    $('gcharges').textContent = '';
+    $('gdesc').textContent = 'Deep catches can bring up bycatch';
+  }
+  if (touchState.on) { $('tGadget').classList.toggle('dim', !me.gadget); $('tGadget').innerHTML = me.gadget ? `<span style="font-size:22px">${GADGET_ICON[me.gadget.id]}</span><br>x${me.gadget.n}` : 'GADGET'; }
   // context prompt
   const pr = $('prompt');
   let msg = '';
@@ -1265,6 +1395,15 @@ function handleEvents(s, me) {
       }
       case 'boom': boomFx(e.x, e.z, e.r); SFX.boom(); shake = Math.max(shake, e.slam ? 0.25 : 0.4); break;
       case 'zap': zapFx(e.pts); SFX.zap(); break;
+      case 'gadget':
+        if (e.id === myId) { SFX.pickup(); toast(`${GADGET_ICON[e.g]} ${GADGETS[e.g].name} x${e.n}<small>Bycatch! Press Q to use. ${GADGETS[e.g].desc}</small>`, GADGET_COLOR[e.g], 2); }
+        break;
+      case 'usegadget': SFX.cast(); if (e.g === 'flounder' || e.g === 'jelly' || e.g === 'clam' || e.g === 'grouper') burst(e.x, 0.5, e.z, GADGET_COLOR[e.g], 6, 3, 0.12, 0.4); break;
+      case 'scatter': burst(e.x, 0.4, e.z, '#5a2a80', 10, 5, 0.12, 0.5); SFX.slap(); break;
+      case 'spike': burst(e.x, 0.6, e.z, '#2a1240', 8, 4, 0.1, 0.4); SFX.slap(); break;
+      case 'inkcloud': burst(e.x, 1, e.z, '#1d1430', 18, 6, 0.3, 0.8); SFX.splash(); break;
+      case 'zapjelly': ringFx(e.x, e.z, 2.2, '#ff8fd8', 0.6); burst(e.x, 1, e.z, '#ffe3f6', 10, 5, 0.1, 0.4); SFX.zap(); break;
+      case 'spit': burst(e.x, 0.9, e.z, '#9fd3ff', 5, 3, 0.1, 0.3); SFX.shoot(); break;
       case 'splash': {
         if (e.id === myId) toast('SPLASH! Swim back', '#9fe8ff', 1.4);
         burst(e.x, WATER_Y + 0.2, e.z, '#ffffff', e.small ? 6 : 18, e.small ? 4 : 7, 0.18, 0.7);
@@ -1386,6 +1525,7 @@ function frame(now) {
       syncPlayers(s, source.prev, source.alpha, t, dt);
       syncProjectiles(s, source.prev, source.alpha);
       syncItems(s, t);
+      syncTraps(s, t);
       syncPelicans(s, source.prev, source.alpha, t);
       handleEvents(s, me);
       updateHud(s, me);
@@ -1421,6 +1561,8 @@ function saveName() { try { localStorage.setItem('slapfish.name', $('name').valu
 
 function clearViews() {
   for (const [, v] of views.players) { scene.remove(v.obj, v.line, v.bobber); v.tag.remove(); }
+  for (const [, v] of views.traps) scene.remove(v.m);
+  views.traps.clear();
   for (const [, v] of views.projectiles) scene.remove(v.m);
   for (const [, v] of views.items) scene.remove(v.m);
   for (const [, v] of views.pelicans) scene.remove(v.m, v.marker);
