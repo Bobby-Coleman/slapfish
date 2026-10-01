@@ -174,6 +174,15 @@ Headless bot-vs-bot results with the current numbers (`npm run sim`, 8 rounds, 2
 
 Bots don't edge-guard on purpose and swim straight home, so they KO each other less than people will. The real check is a human playtest. Levers, in order: `CFG.kbScale` and `CFG.blastRadius` for KO pace, `CFG.usesScale` for fish per round, then individual fish knockback.
 
+## Netcode
+
+- The server runs the only real game at 30 ticks a second and sends a snapshot every tick (compressed). Clients draw everyone else between the last two snapshots.
+- **Prediction:** your own walking and dashing run on your screen straight away and are replayed on top of each snapshot the server sends back, so a correction only shows when you and the server really disagree. Riding a raft is predicted too, because rafts move on a fixed clock. Knockback, swimming and fishing follow the server.
+- **Instant feedback:** your swing, shot sound and dash sound play the moment you press; your own shots are drawn level with your predicted self.
+- **Lag compensation ("backtracking"):** every input carries the snapshot time you were looking at. When you attack, the server puts everyone back where you saw them (up to 250 ms ago), judges melee, zaps and slams there, and flies your projectiles through that stretch of the past before they join the present. What you aimed at is what you hit.
+- Projectile hits are swept along each step's path, so fast fish can't skip past anyone.
+- `LAG_MS=60 npm start` adds 60 ms each way for testing.
+
 ## Things to decide next
 
 - Teams (2v2) or free-for-all only?

@@ -1203,10 +1203,26 @@ function netSource(url, room, name, onLobby, onClose) {
       while (sendAcc >= STEP && ws.readyState === 1) {
         sendAcc -= STEP;
         seq++;
-        ws.send(JSON.stringify({ t: 'input', i: Object.assign({}, input, pending, { seq }) }));
-        hist.push({ seq, mx: input.mx, mz: input.mz });
+        // vt: the moment of the game we're looking at, so the server judges our hits against it (lag compensation)
+        const vt = src.prev && src.curr ? +(src.prev.time + (src.curr.time - src.prev.time) * src.alpha).toFixed(3) : null;
+        ws.send(JSON.stringify({ t: 'input', i: Object.assign({}, input, pending, { seq, vt }) }));
+        const step = { seq, mx: input.mx, mz: input.mz, ax: input.ax, az: input.az, dash: pending.dash };
+        hist.push(step);
         if (hist.length > 90) hist.shift();
-        if (src.pred && src.world) { Sim.useWorld(src.world); Sim.walkStep(src.pred, input.mx, input.mz, STEP, src.predT); src.predT += STEP; }
+        if (src.pred && src.world) {
+          Sim.useWorld(src.world);
+          Sim.predictStep(src.pred, step, STEP, src.predT);
+          src.predT += STEP;
+          if (src.pred.dashed) { src.pred.dashed = false; src.dashedAt = now; SFX.dash(false); }
+          if (src.pred.off) src.pred = null; // dashed off the boards: follow the server from here
+        }
+        // feedback for our own attack straight away; the server decides whether it hits
+        const me = src.curr && src.curr.players.find((p) => p.id === src.myId);
+        if (input.fire && me && me.alive && me.weapon && !me.fishing && now >= (src.cdUntil || 0)) {
+          const w = WEAPONS[me.weapon.id];
+          src.cdUntil = now + w.cd * 1000; src.firedAt = now; src.swingUntil = now + 200;
+          if (w.kind === 'shot' || w.kind === 'pierce' || w.kind === 'rocket') SFX.shoot();
+        }
         pending.dash = pending.fish = pending.use = pending.gadget = false;
       }
     },
@@ -1232,17 +1248,22 @@ function netSource(url, room, name, onLobby, onClose) {
       Sim.useWorld(src.world);
       // client-side prediction for our own walking; anything else (dash, knockback, fishing) follows the server
       const me = msg.s.players.find((p) => p.id === src.myId);
-      if (me && me.alive && !me.air && !me.swim && me.climbT <= 0 && !me.fishing && me.kbT <= 0 && me.dashT <= 0 && me.stunT <= 0 && me.ack != null) {
-        const np = { x: me.x, z: me.z, vx: me.vx, vz: me.vz, weapon: me.weapon, slowT: me.slowT };
+      if (me && me.alive && !me.air && !me.swim && me.climbT <= 0 && !me.fishing && me.kbT <= 0 && me.stunT <= 0 && me.ack != null) {
+        // replay the inputs the server hasn't seen yet on top of its latest word (walking and dashing)
+        const np = { x: me.x, z: me.z, vx: me.vx, vz: me.vz, weapon: me.weapon, slowT: me.slowT, carry: me.carry, dashT: me.dashT, dashN: me.dashN, dashRT: me.dashRT, dashCd: me.dashCd };
         while (hist.length && hist[0].seq <= me.ack) hist.shift();
         let pt = msg.s.time;
-        for (const h of hist) { Sim.walkStep(np, h.mx, h.mz, STEP, pt); pt += STEP; }
+        for (const h of hist) { Sim.predictStep(np, h, STEP, pt); pt += STEP; if (np.off) break; }
+        np.dashed = false;
         src.predT = pt;
-        if (src.pred) {
-          src.off.x += src.pred.x - np.x; src.off.z += src.pred.z - np.z;
-          if (Math.hypot(src.off.x, src.off.z) > 3) src.off.x = src.off.z = 0;
+        if (np.off) { src.pred = null; src.off.x = src.off.z = 0; }
+        else {
+          if (src.pred) {
+            src.off.x += src.pred.x - np.x; src.off.z += src.pred.z - np.z;
+            if (Math.hypot(src.off.x, src.off.z) > 3) src.off.x = src.off.z = 0;
+          }
+          src.pred = np;
         }
-        src.pred = np;
       } else { src.pred = null; src.off.x = src.off.z = 0; }
       if (!playing && msg.s.phase === 'play') beginPlay(src);
     }
@@ -1353,8 +1374,10 @@ function syncPlayers(s, prev, alpha, t, dt) {
       if (u.fishMesh) { u.fishMesh.position.set(0, 0, 0.35); u.fishMesh.scale.setScalar(1.35); u.hand.add(u.fishMesh); }
       u.fishId = wid;
     }
+    // online, your own swing starts the moment you click (the server's swing arrives a round trip later)
+    const swingT = p.id === source.myId && source.swingUntil ? Math.max(p.swingT, (source.swingUntil - performance.now()) / 1000) : p.swingT;
     if (u.fishMesh) {
-      const swing = p.swingT > 0 ? Math.sin((p.swingT / 0.2) * Math.PI) : 0;
+      const swing = swingT > 0 ? Math.sin((Math.min(0.2, swingT) / 0.2) * Math.PI) : 0;
       const w = WEAPONS[wid];
       if (w.kind === 'melee' || w.kind === 'slam') { u.hand.rotation.y = -swing * 1.6 + 0.4; u.hand.rotation.x = w.kind === 'slam' ? -swing * 1.2 : 0; }
       else { u.hand.rotation.y = 0; u.hand.rotation.x = -swing * 0.3; }
@@ -1455,6 +1478,11 @@ function syncProjectiles(s, prev, alpha) {
       views.projectiles.set(pr.id, v);
     }
     const pos = interp(prev && prev.projectiles, pr, alpha);
+    if (!source.local && source.pred && pr.o === source.myId && (pr.vx || pr.vz)) {
+      // you're drawn ahead of the server by your prediction; draw your own shots the same distance ahead
+      const lead = Math.min(0.3, Math.max(0, source.predT - s.time));
+      pos.x += pr.vx * lead; pos.z += pr.vz * lead;
+    }
     v.m.position.set(pos.x, 0.9 + (pr.h || 0), pos.z);
     if (v.m.userData.spin) v.m.rotation.y += 0.55;
     else if (pr.vx || pr.vz) v.m.rotation.y = Math.atan2(pr.vx, pr.vz);
@@ -1809,7 +1837,8 @@ function handleEvents(s, me) {
       }
       case 'fire': {
         const w = WEAPONS[e.w];
-        if (w.kind === 'shot' || w.kind === 'pierce' || w.kind === 'rocket') SFX.shoot();
+        const predicted = e.id === myId && !source.local && performance.now() - (source.firedAt || 0) < 500;
+        if ((w.kind === 'shot' || w.kind === 'pierce' || w.kind === 'rocket') && !predicted) SFX.shoot();
         if (w.kind === 'melee') ringFx(e.x + e.ax * 1.2, e.z + e.az * 1.2, w.range * 0.6, '#ffffff', 0);
         if (e.w === 'squid') burst(e.x + e.ax, 1, e.z + e.az, '#3b2a5a', 3, 2, 0.1, 0.3);
         break;
@@ -1896,7 +1925,7 @@ function handleEvents(s, me) {
       case 'dash': {
         const p = s.players.find((q) => q.id === e.id);
         if (p) burst(p.x, e.water ? WATER_Y + 0.3 : 0.3, p.z, e.water ? '#bdf4ff' : '#ffffff', e.water ? 12 : 6, e.water ? 5 : 3, 0.14, 0.35, 2);
-        if (e.id === myId) SFX.dash(e.water);
+        if (e.id === myId && (source.local || e.water || performance.now() - (source.dashedAt || 0) > 400)) SFX.dash(e.water);
         break;
       }
       case 'blind': {

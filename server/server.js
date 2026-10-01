@@ -9,7 +9,7 @@ const Sim = require('../shared/sim.js');
 const PORT = +process.env.PORT || 8080;
 const ROOT = path.join(__dirname, '..');
 const TICK = 1 / Sim.CFG.tickRate;
-const SNAP_EVERY = 2; // broadcast every 2nd tick = 15 snapshots/s, clients interpolate
+const SNAP_EVERY = 1; // broadcast every tick = 30 snapshots/s, clients interpolate (compressed on the wire)
 const MAX_PLAYERS = 8;
 const LAG_MS = +process.env.LAG_MS || 0; // simulate network latency for testing (each direction)
 
@@ -46,7 +46,7 @@ function lobby(r) {
 }
 
 let nextId = 1;
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, perMessageDeflate: { threshold: 256 } });
 wss.on('connection', (ws) => {
   let room = null, id = null;
   ws.on('message', (raw) => (LAG_MS ? setTimeout(() => onMessage(raw), LAG_MS) : onMessage(raw)));

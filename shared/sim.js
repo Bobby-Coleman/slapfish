@@ -28,6 +28,7 @@
     frenzyAt: 40, // rounds mode: after this long the deep fish start biting faster and faster
     frenzyRamp: 20, // seconds per extra 1x of sink speed once the frenzy starts
     tickRate: 30,
+    maxRewind: 0.25, // lag compensation: online attacks are judged against what the shooter saw, up to this far back
     playerSpeed: 7.6,
     heavySpeed: 6.6,
     playerRadius: 0.55,
@@ -155,6 +156,11 @@
   function rand(a, b) { return a + Math.random() * (b - a); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function len(x, z) { return Math.sqrt(x * x + z * z); }
+  function segDist(x0, z0, x1, z1, px, pz) {
+    const dx = x1 - x0, dz = z1 - z0, l2 = dx * dx + dz * dz;
+    const k = l2 > 0 ? clamp(((px - x0) * dx + (pz - z0) * dz) / l2, 0, 1) : 0;
+    return len(px - (x0 + dx * k), pz - (z0 + dz * k));
+  }
   function pickWeighted(weights) {
     let total = 0;
     for (const w of weights) total += w;
@@ -442,6 +448,33 @@
     p.x = q.x; p.z = q.z;
   }
 
+  // Client-side prediction of your own grounded movement, dashes included. Mirrors the order stepPlayer uses:
+  // timers, then a dash press, then integrate. Sets p.off when you've left the boards (the server takes over).
+  function predictStep(p, inp, dt, t) {
+    const C = CFG;
+    if (t != null && W.movers.length) { worldAt(W, t); worldAt(W, t + dt); carry(p); }
+    p.dashCd = Math.max(0, (p.dashCd || 0) - dt);
+    if (p.dashN < C.dashCharges) { p.dashRT += dt; if (p.dashRT >= C.dashRecharge) { p.dashRT = 0; p.dashN++; } } else p.dashRT = 0;
+    p.dashT = Math.max(0, (p.dashT || 0) - dt);
+    if (inp.dash && p.dashN > 0 && p.dashCd <= 0) {
+      let dx = inp.mx, dz = inp.mz;
+      if (len(dx, dz) < 0.1) { dx = inp.ax; dz = inp.az; }
+      const l = len(dx, dz) || 1;
+      p.vx = (dx / l) * C.dashSpeed; p.vz = (dz / l) * C.dashSpeed;
+      p.dashT = C.dashTime; p.dashCd = 0.12; p.dashN--;
+      p.dashed = true;
+    }
+    if (p.dashT > 0) {
+      let nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
+      const q = resolveSolids(nx, nz, null, true);
+      p.x = q.x; p.z = q.z;
+      if (!onPlatform(p.x, p.z, 0)) p.off = true;
+      return;
+    }
+    if (!onPlatform(p.x, p.z, 0)) { p.off = true; return; }
+    walkStep(p, inp.mx, inp.mz, dt);
+  }
+
   // ---------------------------------------------------------------- bot navigation
   // A walking grid over the boards (2 m apart). Neighbours join where you can walk between them; "dash"
   // links hop short water gaps. Bots follow a distance field toward their goal; anything the grid can't
@@ -711,6 +744,8 @@
       cur.aimDist = clamp(+inp.aimDist || 8, 0, 40);
       cur.fire = !!inp.fire;
       if (inp.seq != null) cur.seq = inp.seq;
+      // the snapshot time the player was looking at when they sent this (for lag compensation)
+      cur.vt = inp.vt != null && isFinite(+inp.vt) ? +inp.vt : null;
       // edge-triggered buttons latch until the sim consumes them
       cur.dash = cur.dash || !!inp.dash;
       cur.fish = cur.fish || !!inp.fish;
@@ -901,7 +936,55 @@
       }
     }
 
+    // ---- lag compensation ("backtracking")
+    // The server keeps a third of a second of everyone's positions. When an online player attacks, targets are
+    // put back where that player saw them (their view time), the hit is judged, and everyone goes back.
+    const hist = [];
+    function recordHistory() {
+      const ps = {};
+      for (const p of Object.values(S.players)) ps[p.id] = [p.x, p.z, p.y];
+      hist.push({ t: S.time, ps });
+      while (hist.length && hist[0].t < S.time - C.maxRewind - 0.1) hist.shift();
+    }
+    function lagOf(p, inp) {
+      if (p.bot || !inp || inp.vt == null || !hist.length) return 0;
+      return clamp(S.time - inp.vt, 0, C.maxRewind);
+    }
+    function frameAt(t) {
+      let best = hist[hist.length - 1];
+      for (const h of hist) if (Math.abs(h.t - t) < Math.abs(best.t - t)) best = h;
+      return best;
+    }
+    // run fn with everyone except `p` moved back to where they were at time t
+    function rewound(p, t, fn) {
+      const fr = frameAt(t), saved = [];
+      for (const q of Object.values(S.players)) {
+        if (q === p || !fr.ps[q.id]) continue;
+        saved.push([q, q.x, q.z, q.y]);
+        [q.x, q.z, q.y] = fr.ps[q.id];
+      }
+      try { fn(); } finally { for (const [q, x, z, y] of saved) { q.x = x; q.z = z; q.y = y; } }
+    }
+
     function useWeapon(p, inp) {
+      const lag = lagOf(p, inp);
+      if (lag > 0.02) {
+        // instant attacks resolve against the past; projectiles fly the catch-up distance through the past
+        const before = S.projectiles.length;
+        rewound(p, S.time - lag, () => fireWeapon(p, inp));
+        const fresh = S.projectiles.slice(before);
+        const n = Math.round(lag / (1 / C.tickRate));
+        for (let k = 1; k <= n; k++) {
+          rewound(p, S.time - lag + (k * lag) / n, () => {
+            for (const pr of fresh) if (S.projectiles.includes(pr) && stepProjectile(pr, lag / n)) S.projectiles.splice(S.projectiles.indexOf(pr), 1);
+          });
+        }
+        return;
+      }
+      fireWeapon(p, inp);
+    }
+
+    function fireWeapon(p, inp) {
       if (!p.weapon) {
         // no slapping: you have to fish for a weapon
         if (p.cd <= 0) { p.cd = 0.8; emit('noweapon', { id: p.id }); }
@@ -1559,83 +1642,87 @@
       }
     }
 
-    function stepProjectiles(dt) {
-      for (let i = S.projectiles.length - 1; i >= 0; i--) {
-        const pr = S.projectiles[i];
-        const w = WEAPONS[pr.w] || GADGETS[pr.w];
-        const owner = S.players[pr.owner];
-        pr.life -= dt;
-        if (pr.lob) {
-          const k = 1 - Math.max(0, pr.life) / pr.flight;
-          pr.x = pr.sx + (pr.tx - pr.sx) * k;
-          pr.z = pr.sz + (pr.tz - pr.sz) * k;
-          pr.h = Math.sin(k * Math.PI) * (pr.hop || 4);
-          if (pr.life <= 0) {
-            if (!onPlatformPoint(pr.x, pr.z)) emit('splash', { x: pr.x, z: pr.z, small: true });
-            else if (pr.gadget) landGadget(pr, owner);
-            else if (pr.bounces > 0) {
-              // bouncy puffer: hop on in the same direction, shorter each time
-              const dx = pr.tx - pr.sx, dz = pr.tz - pr.sz;
-              pr.sx = pr.x; pr.sz = pr.z; pr.tx = pr.x + dx * 0.55; pr.tz = pr.z + dz * 0.55;
-              pr.flight *= 0.7; pr.life = pr.flight; pr.hop = (pr.hop || 4) * 0.55; pr.bounces--;
-              emit('bounce', { x: pr.x, z: pr.z });
-              continue;
-            } else explode(owner, pr.x, pr.z, w, pr.w);
-            S.projectiles.splice(i, 1);
-          }
-          continue;
+    // one projectile, one step; true when it's done (hit, expired, landed)
+    function stepProjectile(pr, dt) {
+      const w = WEAPONS[pr.w] || GADGETS[pr.w];
+      const owner = S.players[pr.owner];
+      pr.life -= dt;
+      if (pr.lob) {
+        const k = 1 - Math.max(0, pr.life) / pr.flight;
+        pr.x = pr.sx + (pr.tx - pr.sx) * k;
+        pr.z = pr.sz + (pr.tz - pr.sz) * k;
+        pr.h = Math.sin(k * Math.PI) * (pr.hop || 4);
+        if (pr.life <= 0) {
+          if (!onPlatformPoint(pr.x, pr.z)) emit('splash', { x: pr.x, z: pr.z, small: true });
+          else if (pr.gadget) landGadget(pr, owner);
+          else if (pr.bounces > 0) {
+            // bouncy puffer: hop on in the same direction, shorter each time
+            const dx = pr.tx - pr.sx, dz = pr.tz - pr.sz;
+            pr.sx = pr.x; pr.sz = pr.z; pr.tx = pr.x + dx * 0.55; pr.tz = pr.z + dz * 0.55;
+            pr.flight *= 0.7; pr.life = pr.flight; pr.hop = (pr.hop || 4) * 0.55; pr.bounces--;
+            emit('bounce', { x: pr.x, z: pr.z });
+            return false;
+          } else explode(owner, pr.x, pr.z, w, pr.w);
+          return true;
         }
-        if (pr.spin) {
-          // boomerang: fly out, then home back to whoever threw it
-          if (!pr.back) {
-            pr.out -= len(pr.vx, pr.vz) * dt;
-            if (pr.out <= 0) { pr.back = true; pr.hitIds = []; emit('boomturn', { x: pr.x, z: pr.z }); }
-          } else if (owner && owner.alive) {
-            const dx = owner.x - pr.x, dz = owner.z - pr.z, d = len(dx, dz) || 1;
-            if (d < 1) { S.projectiles.splice(i, 1); emit('catchback', { id: owner.id }); continue; }
-            pr.vx += ((dx / d) * w.speed - pr.vx) * Math.min(1, dt * 6);
-            pr.vz += ((dz / d) * w.speed - pr.vz) * Math.min(1, dt * 6);
-          }
-        }
-        if (w.homing && pr.life < w.life - 0.25) {
-          // shark torpedo: turn toward the nearest target in front of it
-          let best = null, bd = 18;
-          for (const t of Object.values(S.players)) {
-            if (t.id === pr.owner || !t.alive || ally(owner, t)) continue;
-            const dx = t.x - pr.x, dz = t.z - pr.z, d = len(dx, dz);
-            if (d < bd && (dx * pr.vx + dz * pr.vz) > 0) { bd = d; best = t; }
-          }
-          if (best) {
-            const sp = len(pr.vx, pr.vz) || 1, dx = best.x - pr.x, dz = best.z - pr.z, d = len(dx, dz) || 1;
-            const k = Math.min(1, w.homing * dt);
-            pr.vx += ((dx / d) * sp - pr.vx) * k; pr.vz += ((dz / d) * sp - pr.vz) * k;
-            const l = len(pr.vx, pr.vz) || 1; pr.vx = (pr.vx / l) * sp; pr.vz = (pr.vz / l) * sp;
-          }
-        }
-        pr.x += pr.vx * dt; pr.z += pr.vz * dt;
-        let dead = pr.life <= 0;
-        if (!pr.spin && !w.walls) {
-          for (const o of solidObstacles(S)) {
-            if (len(pr.x - o.x, pr.z - o.z) < o.r + pr.rad) { dead = true; break; }
-          }
-          if (!dead) for (const b of g.world.walls) if (inRect(b, pr.x, pr.z, pr.rad)) { dead = true; break; }
-        }
-        if (!dead) {
-          for (const t of Object.values(S.players)) {
-            if (t.id === pr.owner || !t.alive || t.y > 2.2 || t.climbT > 0 || pr.hitIds.includes(t.id) || ally(owner, t)) continue;
-            if (len(t.x - pr.x, t.z - pr.z) < C.playerRadius + pr.rad) {
-              if (w.kind === 'rocket') { dead = true; break; }
-              hit(t, owner, w.dmg, pr.vx, pr.vz, w.kb, { slow: w.slow, splat: w.splat, w: pr.w });
-              pr.hitIds.push(t.id);
-              if (w.kind !== 'pierce' && w.kind !== 'boomerang') { dead = true; break; }
-            }
-          }
-        }
-        if (dead) {
-          if (w.kind === 'rocket') explode(owner, pr.x, pr.z, w, pr.w);
-          S.projectiles.splice(i, 1);
+        return false;
+      }
+      if (pr.spin) {
+        // boomerang: fly out, then home back to whoever threw it
+        if (!pr.back) {
+          pr.out -= len(pr.vx, pr.vz) * dt;
+          if (pr.out <= 0) { pr.back = true; pr.hitIds = []; emit('boomturn', { x: pr.x, z: pr.z }); }
+        } else if (owner && owner.alive) {
+          const dx = owner.x - pr.x, dz = owner.z - pr.z, d = len(dx, dz) || 1;
+          if (d < 1) { emit('catchback', { id: owner.id }); return true; }
+          pr.vx += ((dx / d) * w.speed - pr.vx) * Math.min(1, dt * 6);
+          pr.vz += ((dz / d) * w.speed - pr.vz) * Math.min(1, dt * 6);
         }
       }
+      if (w.homing && pr.life < w.life - 0.25) {
+        // shark torpedo: turn toward the nearest target in front of it
+        let best = null, bd = 18;
+        for (const t of Object.values(S.players)) {
+          if (t.id === pr.owner || !t.alive || ally(owner, t)) continue;
+          const dx = t.x - pr.x, dz = t.z - pr.z, d = len(dx, dz);
+          if (d < bd && (dx * pr.vx + dz * pr.vz) > 0) { bd = d; best = t; }
+        }
+        if (best) {
+          const sp = len(pr.vx, pr.vz) || 1, dx = best.x - pr.x, dz = best.z - pr.z, d = len(dx, dz) || 1;
+          const k = Math.min(1, w.homing * dt);
+          pr.vx += ((dx / d) * sp - pr.vx) * k; pr.vz += ((dz / d) * sp - pr.vz) * k;
+          const l = len(pr.vx, pr.vz) || 1; pr.vx = (pr.vx / l) * sp; pr.vz = (pr.vz / l) * sp;
+        }
+      }
+      const ox = pr.x, oz = pr.z;
+      pr.x += pr.vx * dt; pr.z += pr.vz * dt;
+      let dead = pr.life <= 0;
+      if (!pr.spin && !w.walls) {
+        for (const o of solidObstacles(S)) {
+          if (len(pr.x - o.x, pr.z - o.z) < o.r + pr.rad) { dead = true; break; }
+        }
+        if (!dead) for (const b of g.world.walls) if (inRect(b, pr.x, pr.z, pr.rad)) { dead = true; break; }
+      }
+      if (!dead) {
+        for (const t of Object.values(S.players)) {
+          if (t.id === pr.owner || !t.alive || t.y > 2.2 || t.climbT > 0 || pr.hitIds.includes(t.id) || ally(owner, t)) continue;
+          // swept along this step's path, so fast fish (the narwhal) can't skip past anyone
+          if (segDist(ox, oz, pr.x, pr.z, t.x, t.z) < C.playerRadius + pr.rad) {
+            if (w.kind === 'rocket') { dead = true; break; }
+            hit(t, owner, w.dmg, pr.vx, pr.vz, w.kb, { slow: w.slow, splat: w.splat, w: pr.w });
+            pr.hitIds.push(t.id);
+            if (w.kind !== 'pierce' && w.kind !== 'boomerang') { dead = true; break; }
+          }
+        }
+      }
+      if (dead) {
+        if (w.kind === 'rocket') explode(owner, pr.x, pr.z, w, pr.w);
+        return true;
+      }
+      return false;
+    }
+    function stepProjectiles(dt) {
+      for (let i = S.projectiles.length - 1; i >= 0; i--) if (stepProjectile(S.projectiles[i], dt)) S.projectiles.splice(i, 1);
     }
 
     function stepWorld(dt) {
@@ -1690,6 +1777,7 @@
       for (const p of Object.values(S.players)) if (p.bot) g.setInput(p.id, botThink(g, p, dt));
       for (const p of Object.values(S.players)) stepPlayer(p, g.inputs[p.id], dt);
       separatePlayers();
+      recordHistory();
       stepGates(dt);
       stepProjectiles(dt);
       stepTraps(dt);
@@ -1751,7 +1839,7 @@
           vx: r2(p.vx), vz: r2(p.vz), kbT: r2(p.kbT), ack: g.inputs[p.id] ? g.inputs[p.id].seq : null,
         })),
         traps: S.traps.map((t) => ({ id: t.id, kind: t.kind, owner: t.owner, x: r2(t.x), z: r2(t.z), life: r2(t.life), armed: !(t.arm > 0), rot: t.rot ? r2(t.rot) : 0 })),
-        projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, back: p.back || undefined, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
+        projectiles: S.projectiles.map((p) => ({ id: p.id, w: p.w, o: p.owner, back: p.back || undefined, x: r2(p.x), z: r2(p.z), h: p.h ? r2(p.h) : 0, vx: r2(p.vx || 0), vz: r2(p.vz || 0) })),
         items: S.items.map((i) => ({ id: i.id, kind: i.kind, weapon: i.weapon, x: r2(i.x), z: r2(i.z), y: r2(i.y || 0) })),
         pelicans: S.pelicans.map((p) => ({ id: p.id, x: r2(p.x), z: r2(p.z), dx: p.dx, dz: p.dz, tx: p.tx, tz: p.tz, kind: p.kind, dropped: p.dropped })),
         rack: g.world.map.racks.map((_, k) => S.rack.filter((r) => r.k === k).map((r) => r.ready)),
@@ -1987,5 +2075,5 @@
     return out;
   }
 
-  return { TEAM_MODES, TEAM_COLORS, TEAM_NAMES, rarityOdds, walkStep, nearestPlatformPoint, MAPS, makeWorld, useWorld, worldAt, moverPos, refreshWalls, GADGETS, BYCATCH, CFG, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
+  return { predictStep, TEAM_MODES, TEAM_COLORS, TEAM_NAMES, rarityOdds, walkStep, nearestPlatformPoint, MAPS, makeWorld, useWorld, worldAt, moverPos, refreshWalls, GADGETS, BYCATCH, CFG, WEAPONS, TIERS, RARITIES, RARITY_COLORS, DROPS, BY_RARITY, createGame, onPlatform, onPlatformPoint, tierFor, waterDirection, isPierTip };
 });
